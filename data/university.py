@@ -1,6 +1,6 @@
 import os
 import cv2
-import numpy as n
+import torch
 from torch.utils.data import Dataset
 import copy
 from tqdm import tqdm
@@ -374,3 +374,35 @@ class U1652DatasetEval(Dataset):
     
     def get_sample_ids(self):
         return set(self.sample_ids)
+
+
+class U1652DatasetDistillation(U1652DatasetTrain):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.label_mapping = {raw_id: i for i, raw_id in enumerate(self.ids)}
+
+    def __getitem__(self, index):
+        idx, query_img_path, reference_img_path = self.samples[index]
+        
+        # for query there is only one file in folder
+        query_img = cv2.imread(query_img_path)
+        query_img = cv2.cvtColor(query_img, cv2.COLOR_BGR2RGB)
+        
+        
+        reference_img = cv2.imread(reference_img_path)
+        reference_img = cv2.cvtColor(reference_img, cv2.COLOR_BGR2RGB)
+        
+        if np.random.random() < self.prob_flip:
+            query_img = cv2.flip(query_img, 1)
+            reference_img = cv2.flip(reference_img, 1) 
+        
+        # image transforms
+        if self.transforms_query is not None:
+            query_img = self.transforms_query(image=query_img)['image']
+            
+        if self.transforms_reference is not None:
+            reference_img = self.transforms_reference(image=reference_img)['image']
+        
+        target_label = self.label_mapping[idx]
+
+        return query_img, reference_img, idx, torch.tensor(target_label, dtype=torch.long)

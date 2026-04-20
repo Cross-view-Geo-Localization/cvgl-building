@@ -16,6 +16,7 @@ from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
 from models.siamese_network import SiameseNetwork
 from models.aspp import ASPPSinkhornSiameseNetwork
 from models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from models.mobilegeo import MobileGeo
 
 # Create a fpga wrapper to profile in CPU and CUDA
 class FpgaProfilerWrapper(nn.Module):
@@ -57,7 +58,7 @@ class QueryProfilerWrapper(nn.Module):
         return self.base_model(image1, mode=ForwardMode.QUERY)
     
 
-config = OmegaConf.load("./DroneCVGL/config/mixer_sinkhorn_siamese.yaml")
+config = OmegaConf.load("./DroneCVGL/config/mobilegeo.yaml")
 script_dir = os.path.dirname(os.path.abspath(__file__))
 summary_path = os.path.join(os.path.join(script_dir, "summary_results", config.model.model_name))
 os.makedirs(summary_path, exist_ok=True)
