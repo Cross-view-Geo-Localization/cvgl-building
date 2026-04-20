@@ -1,0 +1,83 @@
+logging:
+  project_name: "Drone CVGL"
+  task_name: "Train HGNetv2"
+
+model:
+  model_path: "./university_checkpoint"
+  model_name: "SinkhornSiameseNetwork"
+  model_args:
+    model_name: "hgnetv2_b1.ssld_stage1_in22k_in1k"
+    pretrained: True
+    img_size: 384
+    num_prototypes: 16
+    num_iters: 3
+    epsilon: 0.05
+    dim_prototype: 256
+
+loss:
+  loss_name: "InfoNCE"
+  loss_args:
+    # Loss
+    label_smoothing: 0.1
+
+data:
+  # Size
+  img_size: 384
+  sat_img_size: [384, 384]
+  drone_img_size: [384, 384]
+
+  # Dataset
+  dataset: 'U1652-D2S'           # 'U1652-D2S' | 'U1652-S2D'
+  data_folder: "./data/University-Release"
+
+eval:
+  # Eval
+  batch_size_eval: 64
+  eval_every_n_epoch: 1        # eval every n Epoch
+  normalize_features: True
+  eval_reference_n: -1             # -1 for all or int
+
+training:
+  # Training 
+  mixed_precision: False
+  custom_sampling: True         # use custom sampling instead of random
+  seed: 1
+  epochs: 30
+  batch_size: 64               # keep in mind real_batch_size = 2 * batch_size
+  verbose: True
+  gpu_ids: [0,]           # GPU ids for training
+
+  # Hard negative sampling
+  sim_sample: True
+
+  # Optimizer 
+  clip_grad: 100                     # None | float
+  decay_exclude_bias: False
+  grad_checkpointing: True     # Gradient Checkpointing
+  
+  # Learning Rate
+  lr: 1e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
+  scheduler: "cosine"           # "polynomial" | "cosine" | "constant" | None
+  warmup_epochs: 1
+  lr_end: 0.0001               #  only for "polynomial"
+  
+  # Augment Images
+  prob_flip: 0.5              # flipping the sat image and drone image simultaneously
+  
+  # Eval before training
+  zero_shot: False
+  
+  # Checkpoint to start from
+  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SinkhornSiameseNetwork/20260410_020755/weights_e22_92.9494.pth"
+  checkpoint_start: null
+
+  # set num_workers to 0 if on Windows
+  num_workers: 12
+  
+  # for better performance
+  cudnn_benchmark: True
+  
+  # make cudnn deterministic
+  cudnn_deterministic: False
+
+zero_shot: False
