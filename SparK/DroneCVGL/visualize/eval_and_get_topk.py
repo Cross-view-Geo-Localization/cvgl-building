@@ -24,7 +24,15 @@ from utils.registry import build_model
 from models.siamese_network import SiameseNetwork
 from models.asymmetric_network import AsymmetricNetwork
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
+from models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
+
 from core.loss import InfoNCE
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from pretrain.models import load_sparse_checkpoint_to_dense
 
 
 def evaluate(config,
@@ -120,16 +128,20 @@ def main():
     if os.name == 'nt':
         config.training.num_workers = 0
 
-    query_folder = './data/SUES-200-512x512/drone_view_512'
-    ref_folder = './data/SUES-200-512x512/satellite-view'
+    query_folder = 'data/SUES-200-512x512/drone_view_512'
+    ref_folder = 'data/SUES-200-512x512/satellite-view'
 
     print("\nModel:", config.model.model_name)
     model = build_model(config)
 
-    if config.training.checkpoint_start is not None:
+    if "sparse" in config.model and config.model.sparse is False:
+        ckpt = load_sparse_checkpoint_to_dense(config.training.checkpoint_start, config.model.model_args.model_name)
+        model.load_state_dict(ckpt, strict=False)
+        print(f"[load_pretrained_hgnetv2_from_sparse] Loaded weights from {config.training.checkpoint_start}")
+    elif config.training.checkpoint_start is not None:
         print("Start from:", config.training.checkpoint_start)
-        ckpt = torch.load(config.training.checkpoint_start, map_location='cpu')
-        state_dict = ckpt['state_dict'] if 'state_dict' in ckpt else ckpt
+        ckpt = torch.load(config.training.checkpoint_start, map_location="cpu")
+        state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
         model.load_state_dict(state_dict, strict=False)
 
     if torch.cuda.device_count() > 1 and len(config.training.gpu_ids) > 1:

@@ -9,7 +9,7 @@ model:
     model_name: "hgnetv2_b1.ssld_stage1_in22k_in1k"
     pretrained: False
     img_size: 384
-  sparse: False
+  # sparse: False # Comment this line and change checkpoint_start if you don't want to train or eval from SPARSE CHECKPOINT
 
 loss:
   loss_name: "InfoNCE"
@@ -66,7 +66,7 @@ training:
   
   # Checkpoint to start from
   # checkpoint_start: null
-  checkpoint_start: "/home/tts26/sonh/SparK/pretrain/logs/hgnetv2_university/hgnetv2_b1.ssld_stage1_in22k_in1k_pretrained_timm_style.pth"
+  checkpoint_start: "/home/tts26/sonh/university_checkpoint/SiameseNetworkWithPretrainedModel/20260420_123054/weights_e01_4.8739.pth"
 
   # set num_workers to 0 if on Windows
   num_workers: 8

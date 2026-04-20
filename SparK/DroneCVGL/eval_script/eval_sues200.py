@@ -1,4 +1,5 @@
 import os
+import argparse
 import sys
 import torch
 from torch.utils.data import DataLoader
@@ -18,22 +19,40 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from pretrain.models import load_sparse_checkpoint_to_dense
-#-----------------------------------------------------------------------------#
-# Config                                                                      #
-#-----------------------------------------------------------------------------#
 
-config = OmegaConf.load("./SparK/DroneCVGL/config/sparK_siamese.yaml")
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-config.training.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 query_folder = './data/SUES-200-512x512/drone_view_512' 
 ref_folder = './data/SUES-200-512x512/satellite-view'
  
 if __name__ == '__main__':
 
     #-----------------------------------------------------------------------------#
+    # Config                                                                      #
+    #-----------------------------------------------------------------------------#
+
+    parser = argparse.ArgumentParser(description="DroneCVGL Training Script")
+    parser.add_argument(
+        "--config", 
+        type=str, 
+        default="sparK_siamese.yaml", 
+        help="Tên file config nằm trong thư mục config/"
+    )
+    args = parser.parse_args()
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(script_dir)
+    
+    config_path = os.path.join(parent_dir, "config", args.config)
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Can't find: {config_path}")
+
+    config = OmegaConf.load(config_path)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    config.training.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    #-----------------------------------------------------------------------------#
     # Model                                                                       #
     #-----------------------------------------------------------------------------#
-        
     print("\nModel: {}".format(config.model.model_name))
 
     model = build_model(config)
@@ -128,11 +147,3 @@ if __name__ == '__main__':
                        ref_loader=ref_dataloader_test, 
                        ranks=[1, 5, 10],
                        cleanup=True)
-
-    # r1_test = evaluate_with_rotations(config=config,
-    #                    model=model,
-    #                    query_loader=query_dataloader_test,
-    #                    ref_loader=ref_dataloader_test, 
-    #                    ranks=[1, 5, 10],
-    #                    aggregation='max',
-    #                    cleanup=True)

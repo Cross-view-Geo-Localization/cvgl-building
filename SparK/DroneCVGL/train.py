@@ -1,4 +1,5 @@
 import os
+import argparse
 import shutil
 import time
 import sys
@@ -39,8 +40,21 @@ if __name__ == "__main__":
     #-----------------------------------------------------------------------------#
     # Setup                                                                       #
     #-----------------------------------------------------------------------------#
+    parser = argparse.ArgumentParser(description="DroneCVGL Training Script")
+    parser.add_argument(
+        "--config", 
+        type=str, 
+        default="sparK_siamese.yaml", 
+    )
+    args = parser.parse_args()
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "config", "sparK_siamese.yaml")
+    
+    config_path = os.path.join(script_dir, "config", args.config)
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Can't find: {config_path}")
+
     config = OmegaConf.load(config_path)
     print("="*60)
     print("Experiment Config")

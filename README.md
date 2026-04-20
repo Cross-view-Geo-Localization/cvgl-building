@@ -68,7 +68,7 @@ Use a small batch size `--bs=32` for avoiding OOM.
 
 ```shell script
 CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py \
-    --exp_name=debug \
+    --exp_dir=./logs/debug \
     --ep=1 \
     --data_path=./data/University-Release \
     --model=hgnetv2_b1.ssld_stage1_in22k_in1k \
@@ -78,7 +78,7 @@ CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py \
 ## Pretraining HGNetv2_b1 on University-Release
 ```shell script
 CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py \
-    --exp_name=hgnetv2_university_pretrain \
+    --exp_dir=./logs/hgnetv2_university_pretrain \
     --ep=160 \
     --data_path=./data/University-Release \
     --model=hgnetv2_b1.ssld_stage1_in22k_in1k \
@@ -88,8 +88,8 @@ CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py \
 ## or Continue Pretraining from a Checkpoint
 ```shell script
 CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py \
-    --exp_name=hgnetv2_university_pretrain_from_ep160 \
-    --resume_from=./logs/your_last_exp_name/hgnetv2_b1.ssld_stage1_in22k_in1k_withdecoder.pth \
+    --exp_dir=./logs/hgnetv2_university_pretrain_from_ep160 \
+    --resume_from=your_last_exp_dir/hgnetv2_b1.ssld_stage1_in22k_in1k_withdecoder.pth \
     --ep=165 \ # greater than last ep
     --data_path=./data/University-Release \
     --model=hgnetv2_b1.ssld_stage1_in22k_in1k \
@@ -126,13 +126,13 @@ This allows you to qualitatively evaluate how well the model has learned to repr
 For detailed configuration settings, please see [`FINETUNE_CONF.md`](./FINETUNE_CONF.md).
 ## Fine-tuning
 ```shell script
-CUDA_VISIBLE_DEVICES=0 python3 SparK/DroneCVGL/train.py
+CUDA_VISIBLE_DEVICES=0 python3 SparK/DroneCVGL/train.py --config config.yaml
 ```
 The training checkpoints will be saved at: `./university_checkpoint/model_name/yymmdd_id/weights_e{ep}_{recall_1}.pth`
 
 ## Evaluation on SUES200
 ```
-CUDA_VISIBLE_DEVICES=0 python3 SparK/DroneCVGL/eval_script/eval_sues200.py
+CUDA_VISIBLE_DEVICES=0 python3 SparK/DroneCVGL/eval_script/eval_sues200.py --config config.yaml
 ```
 
 ## Visualize Retrieval Results
