@@ -4,18 +4,19 @@ logging:
 
 model:
   model_path: "./university_checkpoint"
-  model_name: "SinkhornSiameseNetwork"
+  model_name: "MobileGeo"
   model_args:
-    model_name: "hgnetv2_b4.ssld_stage2_ft_in1k"
+    model_name: "hgnetv2_b1.ssld_stage1_in22k_in1k"
     pretrained: True
     img_size: 384
+    num_classes: 701
     num_prototypes: 16
     num_iters: 3
     epsilon: 0.05
     dim_prototype: 256
 
 loss:
-  loss_name: "InfoNCE"
+  loss_name: "MobileGeoLoss"
   loss_args:
     # Loss
     label_smoothing: 0.1
@@ -43,7 +44,7 @@ training:
   custom_sampling: True         # use custom sampling instead of random
   seed: 1
   epochs: 30
-  batch_size: 64               # keep in mind real_batch_size = 2 * batch_size
+  batch_size: 32               # keep in mind real_batch_size = 2 * batch_size
   verbose: True
   gpu_ids: [0,]           # GPU ids for training
 

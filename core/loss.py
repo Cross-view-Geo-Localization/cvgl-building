@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 from utils.registry import register_loss
 
@@ -27,86 +28,6 @@ class InfoNCE(nn.Module):
 
         return loss  
  
-
-class SinkhornLoss(nn.Module):
-    def __init__(self, epsilon=0.05, num_iters=3):
-        super().__init__()
-        # The Learnable Dustbin Cost (z)
-        # Initialized to a reasonable scalar, optimized during training
-        self.z = nn.Parameter(torch.tensor([0.5])) 
-        
-        # Sinkhorn hyperparameters
-        self.epsilon = epsilon
-        self.num_iters = num_iters
-
-    def forward(self, x_drone, x_sat):
-        """
-        x_drone: [B, C, H, W] (Local patch features)
-        x_sat:   [B, C, H, W] (Local patch features)
-        """
-        B, C, H, W = x_drone.shape
-        N = H * W
-
-        x_drone = x_drone.view(B, C, N).permute(0, 2, 1)  # (B, N, C)
-        x_sat = x_sat.view(B, C, N).permute(0, 2, 1)
-
-        # --- STEP 1: Project & Normalize ---
-        # Map both to the shared 512D space and L2 normalize for stable Cosine distance
-        feat_d = F.normalize(x_drone, dim=-1) # [B, N, C]
-        feat_s = F.normalize(x_sat, dim=-1)     # [B, N, C]
-
-        # --- STEP 2: Compute Base Cost Matrix (C) ---
-        # Cosine Distance = 1 - Cosine Similarity
-        # Batch matrix multiplication: [B, N, 512] @ [B, 512, M] -> [B, N, M]
-        sim = torch.matmul(feat_d, feat_s.transpose(1, 2))
-        C = 1.0 - sim 
-
-        # --- STEP 3: Augment Matrix with Dustbins ---
-        # Use softplus to ensure the dustbin cost remains strictly positive during backprop
-        z_val = F.softplus(self.z) 
-        
-        # Expand z to match row/column dimensions
-        z_col = z_val.expand(B, N, 1)          # Right dustbin column
-        z_row = z_val.expand(B, 1, N)          # Bottom dustbin row
-        zero_corner = torch.zeros(B, 1, 1, device=x_drone.device) # Bottom-right
-
-        # Stitch the augmented matrix C_bar: [B, N+1, M+1]
-        top_part = torch.cat([C, z_col], dim=2) 
-        bottom_part = torch.cat([z_row, zero_corner], dim=2)
-        C_bar = torch.cat([top_part, bottom_part], dim=1) 
-
-        # --- STEP 4: Define Marginals ---
-        # Uniform mass for features (1/N and 1/M). 
-        # Dustbins get a capacity of 1.0 to absorb all unmatchable mass.
-        r = torch.cat([torch.ones(B, N, device=x_drone.device) / N, 
-                       torch.ones(B, 1, device=x_drone.device)], dim=1)
-        c = torch.cat([torch.ones(B, N, device=x_drone.device) / N, 
-                       torch.ones(B, 1, device=x_drone.device)], dim=1)
-
-        # --- STEP 5: Sinkhorn Iterations ---
-        # Initialize the kernel matrix K
-        K = torch.exp(-C_bar / self.epsilon)  # (B, N+1, N+1)
-        u = torch.ones_like(r) # (B, N+1)
-        v = torch.ones_like(c) # (B, N+1)
-
-        # Alternating row and column scaling
-        with torch.no_grad():
-            for _ in range(self.num_iters - 1):
-                u = r / (torch.matmul(K, v.unsqueeze(2)).squeeze(2) + 1e-8)
-                v = c / (torch.matmul(K.transpose(1, 2), u.unsqueeze(2)).squeeze(2) + 1e-8)
-
-        u = r / (torch.matmul(K, v.unsqueeze(2)).squeeze(2) + 1e-8)
-        v = c / (torch.matmul(K.transpose(1, 2), u.unsqueeze(2)).squeeze(2) + 1e-8)
-
-        # Compute the final optimal transport plan P_bar
-        P_bar = u.unsqueeze(2) * K * v.unsqueeze(1) # [B, N+1, M+1]
-
-        # --- STEP 6: Compute Loss ---
-        # The loss is the Frobenius inner product of the Transport Plan and the Cost Matrix
-        # We sum across N and M, and take the mean across the Batch
-        loss = torch.sum(P_bar * C_bar, dim=(1, 2))
-        
-        return loss.mean()
 
 @register_loss("ColBERTLoss")
 class ColBERTLoss(nn.Module):
@@ -228,3 +149,73 @@ class WeightedInfoNCE(nn.Module):
         loss1 = self.loss(logits_per_image1, eps)
         loss2 = self.loss(logits_per_image2, eps)
         return (loss1 + loss2) / 2
+    
+
+# ----------------------------------------------------------------
+# MobileGeo's Loss
+# ----------------------------------------------------------------
+@register_loss("MobileGeoLoss")
+class MobileGeoLoss(nn.Module):
+    def __init__(self, device=None, **kwargs):
+        super().__init__()
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.loss_fn = nn.CrossEntropyLoss(**kwargs)
+        self.distillation_loss_fn = nn.KLDivLoss(reduction='batchmean')  # KL Divergence Loss for distillation
+        num_stages = kwargs.get('num_stages', 4)  # Number of stages in the backbone
+        self.w_ds = nn.Parameter(torch.ones(num_stages))  # Weights for Deep Supervision Loss (weight of each stage's loss)
+        self.alpha = nn.Parameter(torch.ones(num_stages - 1))  # Weights for Hierarchical Distillation Loss (weight the contribution of each intermediate stage to the distillation loss)
+        self.temperature = nn.Parameter(torch.ones([]) * 2.0)  # Learnable temperature for scaling the logits in distillation and metric loss
+        self.w_loss = nn.Parameter(torch.ones(4))  # Weights for different loss components (can be set as hyperparameters or learnable parameters)
+
+    def forward(self, features_list1, features_list2, embed1, embed2, logit_scale, targets):
+        total_loss = 0.0
+        ds_loss = 0.0
+        distill_loss = 0.0
+        metric_loss = 0.0
+        uapa_loss = 0.0 # Uncertainty Aware Prediction Alignment Loss
+        num_stages = len(features_list1)
+        
+        # Deep Supervision Loss
+        for i in range(num_stages):
+            loss_stage1 = self.loss_fn(features_list1[i], targets)
+            loss_stage2 = self.loss_fn(features_list2[i], targets)
+            ds_loss += self.w_ds[i] * (loss_stage1 + loss_stage2) / 2
+        
+        # Hierarchical Distillation Loss
+        for i in range(num_stages - 1):
+            logits_i = features_list1[i] / self.temperature
+            logits_n = features_list1[-1] / self.temperature
+            loss1 = self.distillation_loss_fn(
+                F.log_softmax(logits_i, dim=1),  
+                F.softmax(logits_n, dim=1)
+            ) * (self.temperature ** 2) 
+
+            logits_i = features_list2[i] / self.temperature
+            logits_n = features_list2[-1] / self.temperature
+            loss2 = self.distillation_loss_fn(
+                F.log_softmax(logits_i, dim=1),  
+                F.softmax(logits_n, dim=1)
+            ) * (self.temperature ** 2) 
+
+            distill_loss += self.alpha[i] * (loss1 + loss2) / 2
+
+        # Metric Loss (InfoNCE) on the final stage's features
+        final_features1 = F.normalize(embed1, dim=-1)
+        final_features2 = F.normalize(embed2, dim=-1)
+        logits_per_image1 = logit_scale * final_features1 @ final_features2.T
+        logits_per_image2 = logits_per_image1.T
+        labels = torch.arange(logits_per_image1.shape[0], device=logits_per_image1.device)
+        metric_loss += (self.loss_fn(logits_per_image1, labels) + self.loss_fn(logits_per_image2, labels)) / 2
+
+        # Uncertainty Aware Prediction Alignment Loss (UAPA Loss)
+        final_probs1 = F.softmax(features_list1[-1], dim=1)
+        final_probs2 = F.softmax(features_list2[-1], dim=1)
+        entropy1 = -torch.sum(final_probs1 * torch.log(final_probs1 + 1e-8), dim=1).mean()
+        entropy2 = -torch.sum(final_probs2 * torch.log(final_probs2 + 1e-8), dim=1).mean()
+        uncertainty_weights = entropy1 - entropy2
+        scale_temperature = self.temperature * (1 + F.sigmoid(uncertainty_weights))
+        uapa_loss += F.kl_div(F.log_softmax(features_list1[-1] / scale_temperature, dim=1), F.softmax(features_list2[-1] / scale_temperature, dim=1), reduction='batchmean') * (scale_temperature ** 2)
+
+        total_loss = self.w_loss[0] * ds_loss + self.w_loss[1] * distill_loss + self.w_loss[2] * metric_loss + self.w_loss[3] * uapa_loss
+
+        return total_loss
