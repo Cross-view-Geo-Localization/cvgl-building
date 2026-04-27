@@ -32,8 +32,7 @@ def is_pow2n(x):
 
 
 def time_str(for_dirname=False):
-    return datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai')).strftime('%m-%d_%H-%M-%S' if for_dirname else '[%m-%d %H:%M:%S]')
-
+    return datetime.datetime.now(tz=pytz.timezone('Asia/Ho_Chi_Minh')).strftime('%m-%d_%H-%M-%S' if for_dirname else '[%m-%d %H:%M:%S]')
 
 def init_distributed_environ(exp_dir):
     dist.initialize()

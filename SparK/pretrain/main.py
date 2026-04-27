@@ -4,6 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 import datetime
 import math
 import sys
@@ -13,7 +14,7 @@ from typing import List
 
 import torch
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 
 import dist
 import encoder
@@ -42,8 +43,24 @@ def main_pt():
     args.log_epoch()
     
     # build data
-    print(f'[build data for pre-training] ...\n')
-    dataset_train = build_dataset_to_pretrain(args.data_path, args.input_size)
+    datasets = []
+    if args.data_paths:
+        for path in args.data_paths:
+            # Kiểm tra path có tồn tại không trước khi build (tùy chọn nhưng nên có)
+            if os.path.exists(path):
+                print(f"Building dataset from: {path}")
+                dataset = build_dataset_to_pretrain(path, args.input_size)
+                datasets.append(dataset)
+            else:
+                print(f"Warning: Path {path} does not exist. Skipping...")
+
+    # Gom các dataset lại bằng ConcatDataset
+    if len(datasets) == 0:
+        raise ValueError("No datasets were built. Please check your --data_paths.")
+    
+    dataset_train = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
+    
+    print(f'\nTotal images for pre-training: {len(dataset_train)}\n')
     data_loader_train = DataLoader(
         dataset=dataset_train, num_workers=args.dataloader_workers, pin_memory=True,
         batch_sampler=DistInfiniteBatchSampler(
