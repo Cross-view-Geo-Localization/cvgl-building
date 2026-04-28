@@ -1,0 +1,149 @@
+import os
+import argparse
+import sys
+import torch
+from torch.utils.data import DataLoader
+from omegaconf import OmegaConf
+
+sys.path.insert(0, "/home/tts26/sonh/SparK/DroneCVGL")
+
+from DroneCVGL.data.sues200 import SUES200DatasetEval, get_transforms
+from DroneCVGL.core.metrics.sues200 import evaluate
+from DroneCVGL.utils.registry import build_model
+from DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork, AttentionSinkhornSiameseNetwork 
+from DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from DroneCVGL.models.siamese_network import SiameseNetwork
+from DroneCVGL.models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from pretrain.models import load_sparse_checkpoint_to_dense
+
+query_folder = './data/SUES-200-512x512/drone_view_512' 
+ref_folder = './data/SUES-200-512x512/satellite-view'
+ 
+if __name__ == '__main__':
+
+    #-----------------------------------------------------------------------------#
+    # Config                                                                      #
+    #-----------------------------------------------------------------------------#
+
+    parser = argparse.ArgumentParser(description="DroneCVGL Training Script")
+    parser.add_argument(
+        "--config", 
+        type=str, 
+        default="sparK_siamese.yaml", 
+        help="Tên file config nằm trong thư mục config/"
+    )
+    args = parser.parse_args()
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(script_dir)
+    
+    config_path = os.path.join(parent_dir, "config", args.config)
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Can't find: {config_path}")
+
+    config = OmegaConf.load(config_path)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    config.training.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    #-----------------------------------------------------------------------------#
+    # Model                                                                       #
+    #-----------------------------------------------------------------------------#
+    print("\nModel: {}".format(config.model.model_name))
+
+    model = build_model(config)
+                          
+    data_config = model.get_config()
+    print(data_config)
+    query_mean, query_std = data_config['query']['mean'], data_config['query']['std']
+    query_img_size = (config.data.drone_img_size, config.data.drone_img_size)
+    ref_mean, ref_std = data_config['reference']['mean'], data_config['reference']['std']
+    ref_img_size = (config.data.sat_img_size, config.data.sat_img_size)
+    
+
+    # load pretrained Checkpoint    
+    if "sparse" in config.model and config.model.sparse is False:
+        ckpt = load_sparse_checkpoint_to_dense(config.training.checkpoint_start, config.model.model_args.model_name)
+        new_ckpt = {}
+        for key, value in ckpt.items():
+            # The checkpoint keys are missing the 'model.' prefix
+            if not key.startswith('model.'):
+                new_key = 'model.' + key
+            else:
+                new_key = key
+            new_ckpt[new_key] = value
+
+        missing_keys, unexpected_keys = model.load_state_dict(new_ckpt, strict=False)
+        print(f"Missing keys: {len(missing_keys)}")
+        print(f"Unexpected keys: {len(unexpected_keys)}")
+        if len(missing_keys) > 0:
+            print(f"First 5 missing keys: {missing_keys[:5]}")
+            
+        print(f"[load_pretrained_hgnetv2_from_sparse] Loaded weights from {config.training.checkpoint_start}")
+    elif config.training.checkpoint_start is not None:
+        print("Start from:", config.training.checkpoint_start)
+        ckpt = torch.load(config.training.checkpoint_start, map_location="cpu")
+        state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
+        model.load_state_dict(state_dict, strict=False)
+
+    # Data parallel
+    print("GPUs available:", torch.cuda.device_count())  
+    if torch.cuda.device_count() > 1 and len(config.training.gpu_ids) > 1:
+        model = torch.nn.DataParallel(model, device_ids=config.training.gpu_ids)
+            
+    # Model to device   
+    model = model.to(device)
+
+    print("\nImage Size Query:", ref_img_size)
+    print("Image Size Ground:", query_img_size)
+    print("Mean: {}".format(query_mean))
+    print("Std:  {}\n".format(query_std)) 
+
+
+    #-----------------------------------------------------------------------------#
+    # DataLoader                                                                  #
+    #-----------------------------------------------------------------------------#
+
+    # Transforms
+    val_transforms, train_sat_transforms, train_drone_transforms = get_transforms(query_img_size[0], mean=query_mean, std=query_std)
+                                                                                 
+    query_dataset_test = SUES200DatasetEval(data_folder=query_folder,
+                                               mode="drone",
+                                               transforms=val_transforms,
+                                               )
+    
+    query_dataloader_test = DataLoader(query_dataset_test,
+                                       batch_size=config.eval.batch_size_eval,
+                                       num_workers=config.training.num_workers,
+                                       shuffle=False,
+                                       pin_memory=True)
+    
+    ref_dataset_test = SUES200DatasetEval(data_folder=ref_folder,
+                                               mode="satellite",
+                                               transforms=val_transforms,
+                                               sample_ids=query_dataset_test.get_sample_ids(),
+                                               ref_n=config.eval.eval_reference_n,
+                                               )
+    
+    ref_dataloader_test = DataLoader(ref_dataset_test,
+                                       batch_size=config.eval.batch_size_eval,
+                                       num_workers=config.training.num_workers,
+                                       shuffle=False,
+                                       pin_memory=True)
+    
+    
+    print("Query Images Test:", len(query_dataset_test))
+    print("Ref Images Test:", len(ref_dataset_test))
+   
+    print("\n{}[{}]{}".format(30*"-", "SUES200", 30*"-"))
+
+    r1_test = evaluate(config=config,
+                       model=model,
+                       query_loader=query_dataloader_test,
+                       ref_loader=ref_dataloader_test, 
+                       ranks=[1, 5, 10],
+                       cleanup=True)

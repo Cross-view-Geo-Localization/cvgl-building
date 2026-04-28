@@ -1,0 +1,135 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  Drone Cross-View Geo-Localization – Training Config
+#  Model : SiameseNetwork_MEAN  (ConvNext/HGNetV2 backbone + DEG + DSAM + MSF)
+# ══════════════════════════════════════════════════════════════════════════════
+
+logging:
+  project_name: "Drone CVGL"
+  task_name:    "Train SiameseNetwork_MEAN"
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Model
+# ──────────────────────────────────────────────────────────────────────────────
+model:
+  model_path: "./university_checkpoint"
+  model_name: "SiameseNetwork_MEAN"
+
+  model_args:
+    # ── Backbone ──────────────────────────────────────────────────────────────
+    model_name: "hgnetv2_b1.ssld_stage1_in22k_in1k"
+    pretrained:  true
+    img_size:    384
+
+    # ── Head ──────────────────────────────────────────────────────────────────
+    num_classes: 701          # University-1652 drone-side unique IDs
+    block:       2            # must be 2 – DEG (flag=True) returns exactly 2 views
+    return_f:    true         # return pre-classifier embeddings for triplet loss
+
+    # ── DEG Module (Dilated Edge-aware Gating) ─────────────────────────────
+    # flag=True is hardcoded when block=2; these two args control
+    # the dropout rate inside DEG.
+    deg_dropout: 0.01         # dropout on DEG output (passed to DEG_module)
+
+    # ── DSAM: SparseMLP1D → FAT → MSF ─────────────────────────────────────
+    # Constructor args → SparseMLP1D / FAT / MSF
+    proj_hid_mult:   2        # hid_channels = feature_dim × proj_hid_mult
+                              # (null → auto = feature_dim * 2)
+    proj_out_dim:    256      # output dim of SparseMLP1D and FAT  (dsam_out_channels)
+    num_proj_layers: 2        # Conv1d depth in SparseMLP1D        (dsam_num_layers)
+    fat_temperature: 0.10     # softmax temperature in FAT  (smaller → sharper attention)
+    msf_out_dim:     512      # output channels of MSF fusion      (msf_out_channels)
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Loss
+# ──────────────────────────────────────────────────────────────────────────────
+loss:
+  losses:
+    # Required – InfoNCE on GAP descriptors (query vs reference)
+    infoNCE:
+      loss_name: "InfoNCE"
+      loss_args:
+        label_smoothing: 0.1
+
+    # DSA contrastive loss on MSF-aligned spatial features
+    DSA_loss:
+      loss_name: "InfoNCE"
+      loss_args:
+        label_smoothing: 0.0
+
+    # Metric-learning loss on DEG part embeddings
+    Triplet:
+      loss_name: "Triplet"
+      loss_args:
+        margin: 0.3
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Data
+# ──────────────────────────────────────────────────────────────────────────────
+data:
+  img_size:       384
+  sat_img_size:   [384, 384]
+  drone_img_size: [384, 384]
+
+  dataset:     "U1652-D2S"                    # "U1652-D2S" | "U1652-S2D"
+  data_folder: "./data/University-Release"
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Evaluation
+# ──────────────────────────────────────────────────────────────────────────────
+eval:
+  batch_size_eval:     64
+  eval_every_n_epoch:  1
+  normalize_features:  true
+  eval_reference_n:    -1     # -1 → use all reference images
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Training
+# ──────────────────────────────────────────────────────────────────────────────
+training:
+  # ── Loss weights (set 0.0 to disable a loss term completely) ────────────
+  weight_infonce:  1.00
+  weight_cls:      0.10     # cross-entropy averaged over all classifier heads
+  weight_triplet:  0.10     # triplet on DEG part embeds (needs return_f: true)
+  weight_dsa:      0.75     # DSA InfoNCE on MSF-pooled features
+
+  # ── Must match model output format ──────────────────────────────────────
+  # true  → model returns (branch_q, branch_r) tuples  (SiameseNetwork + DEG/DSAM)
+  # false → model returns plain (feat_q, feat_r)
+  handcraft_model: true
+
+  # Must mirror model_args.return_f so train loop unpacks correctly
+  return_f: true
+
+  # ── Runtime ─────────────────────────────────────────────────────────────
+  mixed_precision:  false
+  custom_sampling:  true
+  seed:             1
+  epochs:           20
+  batch_size:       64       # effective batch = 2 × batch_size (query + reference)
+  verbose:          true
+  gpu_ids:          [0]
+
+  # ── Hard-negative sampling ───────────────────────────────────────────────
+  sim_sample: true
+
+  # ── Optimizer ───────────────────────────────────────────────────────────
+  clip_grad:          100    # max gradient value; null to disable
+  decay_exclude_bias: false
+  grad_checkpointing: false
+
+  # ── Learning rate ────────────────────────────────────────────────────────
+  lr:            1.0e-4
+  scheduler:     "cosine"   # "cosine" | "polynomial" | "constant" | null
+  warmup_epochs: 1
+  lr_end:        1.0e-5     # used only when scheduler = "polynomial"
+
+  # ── Augmentation ─────────────────────────────────────────────────────────
+  prob_flip: 0.5
+
+  # ── Misc ─────────────────────────────────────────────────────────────────
+  zero_shot:        false   # run eval before first training epoch
+  checkpoint_start: null    # path to resume checkpoint; null = train from scratch
+  num_workers:      8       # set 0 on Windows
+  cudnn_benchmark:      true
+  cudnn_deterministic:  false
+  device: "cuda"
