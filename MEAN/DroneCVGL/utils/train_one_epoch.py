@@ -4,8 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch.amp import autocast
-from DroneCVGL.core.cal_loss import cal_loss, cal_kl_loss, cal_triplet_loss
-from DroneCVGL.utils.predict import ForwardMode
+from MEAN.DroneCVGL.core.cal_loss import cal_loss, cal_kl_loss, cal_triplet_loss
+from MEAN.DroneCVGL.utils.predict import ForwardMode
  
  
 # ──────────────────────────────────────────────────────────────────────────────

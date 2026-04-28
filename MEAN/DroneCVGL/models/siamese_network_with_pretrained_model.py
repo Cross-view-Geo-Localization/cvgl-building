@@ -3,8 +3,8 @@ import timm
 import numpy as np
 import torch.nn as nn
 
-from DroneCVGL.utils.registry import register_model
-from DroneCVGL.utils.predict import ForwardMode
+from MEAN.DroneCVGL.utils.registry import register_model
+from MEAN.DroneCVGL.utils.predict import ForwardMode
 
 @register_model("SiameseNetworkWithPretrainedModel")
 class SiameseNetworkWithPretrainedModel(nn.Module):

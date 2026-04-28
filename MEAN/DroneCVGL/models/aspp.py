@@ -4,8 +4,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from DroneCVGL.utils.registry import register_model
-from DroneCVGL.utils.predict import ForwardMode
+from MEAN.DroneCVGL.utils.registry import register_model
+from MEAN.DroneCVGL.utils.predict import ForwardMode
 
 class DepthwiseSeparableConv(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, dilation=1):

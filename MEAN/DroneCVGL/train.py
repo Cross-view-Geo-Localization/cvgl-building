@@ -13,23 +13,23 @@ from transformers import (get_constant_schedule_with_warmup,
                           get_polynomial_decay_schedule_with_warmup,
                           get_cosine_schedule_with_warmup)
 
-from DroneCVGL.utils.logger import Logger
-from DroneCVGL.utils.registry import build_model, build_loss
-from DroneCVGL.utils.train_one_epoch import train_one_epoch
-from DroneCVGL.data.transforms import get_transforms_train, get_transforms_val
-from DroneCVGL.data.university import U1652DatasetTrain, U1652DatasetEval
-from DroneCVGL.core.metrics.university import evaluate, calc_sim
+from MEAN.DroneCVGL.utils.logger import Logger
+from MEAN.DroneCVGL.utils.registry import build_model, build_loss
+from MEAN.DroneCVGL.utils.train_one_epoch import train_one_epoch
+from MEAN.DroneCVGL.data.transforms import get_transforms_train, get_transforms_val
+from MEAN.DroneCVGL.data.university import U1652DatasetTrain, U1652DatasetEval
+from MEAN.DroneCVGL.core.metrics.university import evaluate, calc_sim
 
 
 # MODELS and LOSSES
-from DroneCVGL.models.siamese_network import SiameseNetwork
-from DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
-from DroneCVGL.models.asymmetric_network import AsymmetricNetwork
-from DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork
-from DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork
-from DroneCVGL.models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
-from DroneCVGL.models.siamese_network_MEAN import SiameseNetwork_MEAN
-from DroneCVGL.core.loss import InfoNCE, ColBERTLoss
+from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork
+from MEAN.DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from MEAN.DroneCVGL.models.asymmetric_network import AsymmetricNetwork
+from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork
+from MEAN.DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork
+from MEAN.DroneCVGL.models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
+from MEAN.DroneCVGL.models.siamese_network_MEAN import SiameseNetwork_MEAN
+from MEAN.DroneCVGL.core.loss import InfoNCE, ColBERTLoss
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:

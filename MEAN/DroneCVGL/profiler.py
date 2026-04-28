@@ -8,15 +8,15 @@ import torch.utils.benchmark as benchmark
 from torch.profiler import profile, record_function, ProfilerActivity
 from omegaconf import OmegaConf
 
-from DroneCVGL.utils.registry import build_model
-from DroneCVGL.utils.logger import Logger
-from DroneCVGL.utils.predict import ForwardMode
+from MEAN.DroneCVGL.utils.registry import build_model
+from MEAN.DroneCVGL.utils.logger import Logger
+from MEAN.DroneCVGL.utils.predict import ForwardMode
 # MODELS
-from DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork
-from DroneCVGL.models.siamese_network import SiameseNetwork
-from DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork
-from DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
-from DroneCVGL.models.siamese_network_with_pretrained_model import siamese_network_with_pretrained_model
+from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork
+from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork
+from MEAN.DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork
+from MEAN.DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from MEAN.DroneCVGL.models.siamese_network_with_pretrained_model import siamese_network_with_pretrained_model
 
 # Create a fpga wrapper to profile in CPU and CUDA
 class FpgaProfilerWrapper(nn.Module):

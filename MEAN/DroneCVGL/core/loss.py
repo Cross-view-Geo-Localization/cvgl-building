@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from DroneCVGL.utils.registry import register_loss
+from MEAN.DroneCVGL.utils.registry import register_loss
 
 @register_loss("InfoNCE")
 class InfoNCE(nn.Module):

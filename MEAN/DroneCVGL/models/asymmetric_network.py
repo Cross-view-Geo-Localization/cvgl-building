@@ -4,8 +4,8 @@ import timm
 import numpy as np
 import torch.nn as nn
 
-from DroneCVGL.utils.registry import register_model
-from DroneCVGL.utils.predict import ForwardMode
+from MEAN.DroneCVGL.utils.registry import register_model
+from MEAN.DroneCVGL.utils.predict import ForwardMode
 
 sys.path.insert(0, "/home/tts26/sonh/scale-mae")
 sys.path.insert(0, "/home/tts26/sonh/scale-mae/mae")

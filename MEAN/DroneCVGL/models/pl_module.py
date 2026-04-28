@@ -3,8 +3,8 @@ from torch import optim
 from transformers import get_constant_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup, get_cosine_schedule_with_warmup
 from omegaconf import OmegaConf
 
-from DroneCVGL.utils.registry import build_model, build_loss
-from DroneCVGL.core.loss import InfoNCE
+from MEAN.DroneCVGL.utils.registry import build_model, build_loss
+from MEAN.DroneCVGL.core.loss import InfoNCE
 
 class CVGLLightningModule(pl.LightningModule):
     def __init__(self, config, steps_per_epoch):

@@ -24,7 +24,7 @@ from sklearn.metrics import average_precision_score
 from torch.amp import autocast
 from tqdm import tqdm
 
-from DroneCVGL.utils.predict import ForwardMode
+from MEAN.DroneCVGL.utils.predict import ForwardMode
 
 # ---------------------------------------------------------------------------
 # Feature extraction

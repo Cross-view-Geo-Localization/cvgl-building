@@ -6,12 +6,12 @@ import torch.nn.functional as F
 
 sys.path.insert(0, "/home/tts26/sonh/DroneCVGL")
 
-from DroneCVGL.data.sues200 import SUES200DatasetEval, get_transforms
-from DroneCVGL.core.metrics.sues200_with_superGlobal import evaluate
-from DroneCVGL.utils.registry import build_model
-from DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork    
-from DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
-from DroneCVGL.models.siamese_network import SiameseNetwork
+from MEAN.DroneCVGL.data.sues200 import SUES200DatasetEval, get_transforms
+from MEAN.DroneCVGL.core.metrics.sues200_with_superGlobal import evaluate
+from MEAN.DroneCVGL.utils.registry import build_model
+from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork    
+from MEAN.DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork
 
 #-----------------------------------------------------------------------------#
 # Config                                                                      #

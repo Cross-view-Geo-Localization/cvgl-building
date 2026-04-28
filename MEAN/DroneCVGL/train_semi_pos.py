@@ -35,20 +35,20 @@ from transformers import (
     get_polynomial_decay_schedule_with_warmup,
 )
 
-from DroneCVGL.utils.logger import Logger
-from DroneCVGL.utils.registry import build_model, build_loss
-from DroneCVGL.utils.train_one_epoch import train_one_epoch_semi_pos
-from DroneCVGL.data.transforms import get_transforms_train, get_transforms_val
-from DroneCVGL.data.uav1 import UAV1DatasetTrain, UAV1DatasetEval
-from DroneCVGL.core.metrics.uav1 import evaluate as evaluate_uav1
+from MEAN.DroneCVGL.utils.logger import Logger
+from MEAN.DroneCVGL.utils.registry import build_model, build_loss
+from MEAN.DroneCVGL.utils.train_one_epoch import train_one_epoch_semi_pos
+from MEAN.DroneCVGL.data.transforms import get_transforms_train, get_transforms_val
+from MEAN.DroneCVGL.data.uav1 import UAV1DatasetTrain, UAV1DatasetEval
+from MEAN.DroneCVGL.core.metrics.uav1 import evaluate as evaluate_uav1
 
 # Model / Loss registry — import to trigger registration
-from DroneCVGL.models.siamese_network import SiameseNetwork                           
-from DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg             
-from DroneCVGL.models.asymmetric_network import AsymmetricNetwork                     
-from DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork         
-from DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork                         
-from DroneCVGL.core.loss import InfoNCE, ColBERTLoss                                  
+from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork                           
+from MEAN.DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg             
+from MEAN.DroneCVGL.models.asymmetric_network import AsymmetricNetwork                     
+from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork         
+from MEAN.DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork                         
+from MEAN.DroneCVGL.core.loss import InfoNCE, ColBERTLoss                                  
 
 
 if __name__ == "__main__":

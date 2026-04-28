@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import Callback, ModelCheckpoint
-from DroneCVGL.core.metrics.university import calc_sim, evaluate
+from MEAN.DroneCVGL.core.metrics.university import calc_sim, evaluate
 
 class EvalAndSamplingCallback(Callback):
     """Handles evaluation and hard negative sampling callback after training one epoch"""

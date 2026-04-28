@@ -2,62 +2,16 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import gc
-from DroneCVGL.utils.predict import predict, ForwardMode, predict_query_rotations
+from MEAN.DroneCVGL.utils.predict import predict, ForwardMode, predict_query_rotations
 import torch.nn.functional as F
-
-
-def apply_superglobal(qf, gf, initial_scores, M=100, K=5):
-    """
-    SuperGlobal reranking.
-    """
-    # 1. Get Top-M candidate index. 
-    # FIX: Add .copy() to remove the negative stride caused by [::-1]
-    initial_index = np.argsort(initial_scores)[::-1].copy()
-    top_m_index = initial_index[:M]
-    
-    # 2. Construct mini-database
-    top_m_gf = gf[top_m_index] # [M, D] - This will now work perfectly
-    mini_db = torch.cat([qf.unsqueeze(0), top_m_gf], dim=0) # [M+1, D]
-    
-    # L2 Normalization
-    mini_db = F.normalize(mini_db, p=2, dim=1)
-    
-    # 3. Internal Similarity Matrix
-    sim_mini = mini_db @ mini_db.T # [M+1, M+1]
-    
-    # 4. Find K-Nearest Neighbors
-    _, topk_idx = torch.topk(sim_mini, k=K+1, dim=1)
-    
-    # 5. Aggregation
-    neighbors = mini_db[topk_idx] # Shape: [M+1, K+1, D]
-    new_mini_db = neighbors.mean(dim=1) # Shape: [M+1, D]
-    
-    # L2 Normalization again after aggregation
-    new_mini_db = F.normalize(new_mini_db, p=2, dim=1)
-    
-    # 6. Re-calculate scores between NEW query and NEW candidates
-    new_qf = new_mini_db[0]
-    new_gf = new_mini_db[1:]
-    new_scores = (new_gf @ new_qf).cpu().numpy()
-    
-    # 7. Re-order the Top-M list based on new scores
-    rerank_order = np.argsort(new_scores)[::-1].copy() # Added .copy() here too just in case
-    reranked_top_m_index = top_m_index[rerank_order]
-    
-    # 8. Concatenate reranked Top-M with the rest of the list
-    final_index = np.concatenate([reranked_top_m_index, initial_index[M:]])
-    
-    return final_index
 
 def evaluate(config,
             model,
             query_loader,
             ref_loader,
             ranks=[1, 5, 10],
-            cleanup=True,
-            use_superglobal=True, # THÊM tham số kích hoạt SuperGlobal
-            sg_M=100,             # THÊM tham số M
-            sg_K=5):              # THÊM tham số K
+            cleanup=True):
+    
     
     print("Extract Features:")
     img_features_query, ids_query = predict(config, model, query_loader, mode=ForwardMode.QUERY)
@@ -70,11 +24,7 @@ def evaluate(config,
     CMC = torch.IntTensor(len(ids_ref)).zero_()
     ap = 0.0
     for i in tqdm(range(len(ids_query))):
-        # CẬP NHẬT: Truyền thêm các tham số SuperGlobal vào eval_query
-        ap_tmp, CMC_tmp = eval_query(
-            img_features_query[i], ql[i], img_features_ref, gl, 
-            use_superglobal=use_superglobal, M=sg_M, K=sg_K
-        )
+        ap_tmp, CMC_tmp = eval_query(img_features_query[i], ql[i], img_features_ref, gl)
         if CMC_tmp[0]==-1:
             continue
         CMC = CMC + CMC_tmp
@@ -98,26 +48,24 @@ def evaluate(config,
         
     print(' - '.join(string)) 
     
+    # cleanup and free memory on GPU
     if cleanup:
         del img_features_query, ids_query, img_features_ref, ids_ref
         gc.collect()
+        #torch.cuda.empty_cache()
     
     return CMC[0]
 
 
-# CẬP NHẬT: Nhận thêm tham số SuperGlobal
-def eval_query(qf, ql, gf, gl, use_superglobal=False, M=100, K=5):
-    
+def eval_query(qf,ql,gf,gl):
+
     score = gf @ qf.unsqueeze(-1)
+    
     score = score.squeeze().cpu().numpy()
  
-    if use_superglobal:
-        # Nếu bật SuperGlobal, bỏ qua sắp xếp thô và dùng hàm rerank
-        index = apply_superglobal(qf, gf, score, M=M, K=K)
-    else:
-        # Logic dự phòng (mặc định cũ)
-        index = np.argsort(score)
-        index = index[::-1]    
+    # predict index
+    index = np.argsort(score)  #from small to large
+    index = index[::-1]    
 
     # good index
     query_index = np.argwhere(gl==ql)
@@ -126,40 +74,10 @@ def eval_query(qf, ql, gf, gl, use_superglobal=False, M=100, K=5):
     # junk index
     junk_index = np.argwhere(gl==-1)
     
+    
+    
     CMC_tmp = compute_mAP(index, good_index, junk_index)
     return CMC_tmp
-
-
-def compute_mAP(index, good_index, junk_index):
-    # ... (Giữ nguyên code cũ) ...
-    ap = 0
-    cmc = torch.IntTensor(len(index)).zero_()
-    if good_index.size==0:   # if empty
-        cmc[0] = -1
-        return ap,cmc
-
-    # remove junk_index
-    mask = np.isin(index, junk_index, invert=True)
-    index = index[mask]
-
-    # find good_index index
-    ngood = len(good_index)
-    mask = np.isin(index, good_index)
-    rows_good = np.argwhere(mask==True)
-    rows_good = rows_good.flatten()
-    
-    cmc[rows_good[0]:] = 1
-    for i in range(ngood):
-        d_recall = 1.0/ngood
-        precision = (i+1)*1.0/(rows_good[i]+1)
-        if rows_good[i]!=0:
-            old_precision = i*1.0/rows_good[i]
-        else:
-            old_precision=1.0
-        ap = ap + d_recall*(old_precision + precision)/2
-
-    return ap, cmc
-
 
 def compute_mAP(index, good_index, junk_index):
     ap = 0
@@ -254,3 +172,4 @@ def calculate_nearest(reference_features, reference_labels, neighbour_range=64, 
         nearest_dict[key] = [str(n).zfill(4) for n in nearest]
     
     return nearest_dict
+    
