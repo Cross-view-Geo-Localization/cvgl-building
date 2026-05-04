@@ -16,7 +16,7 @@ from models.siamese_network import SiameseNetwork
 # Config                                                                      #
 #-----------------------------------------------------------------------------#
 
-config = OmegaConf.load("./DroneCVGL/config/mixer_sinkhorn_siamese.yaml")
+config = OmegaConf.load("./DroneCVGL/config/sinkhorn_siamese.yaml")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 config.training.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 query_folder = './data/SUES-200-512x512/drone_view_512' 

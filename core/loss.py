@@ -219,3 +219,72 @@ class MobileGeoLoss(nn.Module):
         total_loss = self.w_loss[0] * ds_loss + self.w_loss[1] * distill_loss + self.w_loss[2] * metric_loss + self.w_loss[3] * uapa_loss
 
         return total_loss
+
+
+# ----------------------------------------------------------------
+# Intra InfoNCE Loss (positive/negative pair in drone and sat)
+# ----------------------------------------------------------------
+@register_loss("IntraInfoNCE")
+class IntraInfoNCE(nn.Module):
+
+    def __init__(self, device=None, **kwargs):
+        super().__init__()
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.loss_function = nn.CrossEntropyLoss(**kwargs)
+        self.alpha = nn.Parameter(torch.ones([]) * 1.0)  # Weighting factor for intra-modal loss 
+
+
+    def forward(self, image_features1, image_features2, logit_scale):
+        total_loss = 0
+        image_features1 = F.normalize(image_features1, dim=-1)
+        image_features2 = F.normalize(image_features2, dim=-1)
+        
+        # NORMAL INFONCE LOSS
+        logits_per_image1 = logit_scale * image_features1 @ image_features2.T
+        
+        logits_per_image2 = logits_per_image1.T
+        
+        labels = torch.arange(logits_per_image1.shape[0], device=logits_per_image1.device)
+        
+        loss = (self.loss_function(logits_per_image1, labels) + self.loss_function(logits_per_image2, labels)) / 2
+
+        # DRONE INFONCE LOSS
+        logits_per_image_d1 = logit_scale * image_features1 @ image_features1.T
+        logits_per_image_d2 = logits_per_image_d1.T
+        loss_d = (self.loss_function(logits_per_image_d1, labels) + self.loss_function(logits_per_image_d2, labels)) / 2
+
+        # SATELLITE INFONCE LOSS
+        logits_per_image_s1 = logit_scale * image_features2 @ image_features2.T
+        logits_per_image_s2 = logits_per_image_s1.T
+        loss_s = (self.loss_function(logits_per_image_s1, labels) + self.loss_function(logits_per_image_s2, labels)) / 2
+
+        total_loss = loss + self.alpha * loss_d + (1 / self.alpha) * loss_s
+
+        return total_loss  
+ 
+
+@register_loss("CrossDistillationLoss")
+class CrossDistillationLoss(nn.Module):
+    def __init__(self, device=None, **kwargs):
+        super().__init__()
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.distillation_loss_fn = nn.KLDivLoss(reduction='batchmean')  # KL Divergence Loss for distillation
+        self.temperature = nn.Parameter(torch.ones([]) * 2.0)  # Learnable temperature for scaling the logits in distillation
+
+    def forward(self, s_embed1, s_embed2, t_embed1, t_embed2):
+        distill_loss = 0.0
+        
+        s_embed1 = F.normalize(s_embed1, dim=-1)
+        s_embed2 = F.normalize(s_embed2, dim=-1)
+        t_embed1 = F.normalize(t_embed1, dim=-1)
+        t_embed2 = F.normalize(t_embed2, dim=-1)
+
+        s_logits = s_embed1 @ s_embed2.T / self.temperature
+        t_logits = t_embed1 @ t_embed2.T / self.temperature
+
+        distill_loss = self.distillation_loss_fn(
+            F.log_softmax(s_logits, dim=1),
+            F.softmax(t_logits, dim=1)
+        ) * (self.temperature ** 2)
+
+        return distill_loss

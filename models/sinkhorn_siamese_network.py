@@ -178,7 +178,7 @@ class SinkhornSiameseNetwork(nn.Module):
         else:
             self.model = timm.create_model(model_name, pretrained=pretrained, features_only=True, num_classes=0)
         
-        self.sinkhorn = DustbinSinkhornPooling(
+        self.sinkhorn = FPGADustbinSinkhornPooling(
             feature_dim=dim_prototype,
             num_prototypes=num_prototypes,
             num_iters=num_iters,

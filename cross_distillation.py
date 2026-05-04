@@ -14,9 +14,9 @@ from transformers import (get_constant_schedule_with_warmup,
 
 from utils.logger import Logger
 from utils.registry import build_model, build_loss
-from utils.train_one_epoch import train_one_epoch_self_distill, train_one_epoch_cross_distill
+from utils.train_one_epoch import train_one_epoch_cross_distill
 from data.transforms import get_transforms_train, get_transforms_val
-from data.university import U1652DatasetDistillation, U1652DatasetEval
+from data.university import U1652DatasetTrain, U1652DatasetEval
 from core.metrics.university import evaluate, calc_sim
 
 # MODELS and LOSSES
@@ -26,14 +26,14 @@ from models.asymmetric_network import AsymmetricNetwork
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
 from models.aspp import ASPPSinkhornSiameseNetwork
 from models.mobilegeo import MobileGeo
-from core.loss import InfoNCE, ColBERTLoss, MobileGeoLoss
+from core.loss import InfoNCE, ColBERTLoss, MobileGeoLoss, CrossDistillationLoss
 
 if __name__ == "__main__":
     #-----------------------------------------------------------------------------#
     # Setup                                                                       #
     #-----------------------------------------------------------------------------#
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "config", "mobilegeo.yaml")
+    config_path = os.path.join(script_dir, "config", "sinkhorn_siamese.yaml")
     config = OmegaConf.load(config_path)
     print("="*60)
     print("Experiment Config")
@@ -104,6 +104,21 @@ if __name__ == "__main__":
 
 
     #-----------------------------------------------------------------------------#
+    # Teacher                                                                     #
+    #-----------------------------------------------------------------------------#
+    teacher = build_model(config.cross_distill)
+
+    if config.cross_distill.checkpoint_start is not None:
+        print("Start from:", config.cross_distill.checkpoint_start)
+        ckpt = torch.load(config.cross_distill.checkpoint_start, map_location="cpu")
+        state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
+        teacher.load_state_dict(state_dict, strict=False)
+
+    teacher = teacher.to(config.training.device)
+    teacher.eval()
+
+
+    #-----------------------------------------------------------------------------#
     # DataLoader                                                                  #
     #-----------------------------------------------------------------------------#
     train_drone_transforms, train_sat_transforms = get_transforms_train(
@@ -121,7 +136,7 @@ if __name__ == "__main__":
         ref_mean=ref_mean,
         ref_std=ref_std)
 
-    train_dataset = U1652DatasetDistillation(
+    train_dataset = U1652DatasetTrain(
         config.data.query_folder_train,
         config.data.reference_folder_train,
         train_drone_transforms,
@@ -163,7 +178,7 @@ if __name__ == "__main__":
     # Loss                                                                        #
     #-----------------------------------------------------------------------------#
     loss_fn = build_loss(config)
-
+    cross_distill_loss_fn = build_loss(config.cross_distill)
     if config.training.mixed_precision:
         scaler = GradScaler(init_scale=2.**10)
     else:
@@ -238,8 +253,8 @@ if __name__ == "__main__":
     for epoch in range(1, config.training.epochs + 1):
         print(f"\n{30*'-'}[ Epoch: {epoch} ]{30*'-'}")
 
-        train_loss = train_one_epoch_self_distill(config, model, train_dataloader,
-                                     loss_fn, optimizer, scheduler, scaler)
+        train_loss = train_one_epoch_cross_distill(config, teacher, model, train_dataloader,
+                                                   loss_fn, cross_distill_loss_fn, optimizer, scheduler, scaler)
 
         print(f"Epoch: {epoch} | Train Loss = {train_loss:.4f} | LR = {optimizer.param_groups[0]['lr']:.6f}")
 

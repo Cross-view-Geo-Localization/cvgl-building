@@ -25,14 +25,14 @@ from models.siamese_network_max_avg import SiameseNetworkMaxAvg
 from models.asymmetric_network import AsymmetricNetwork
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
 from models.aspp import ASPPSinkhornSiameseNetwork
-from core.loss import InfoNCE, ColBERTLoss
+from core.loss import InfoNCE, ColBERTLoss, IntraInfoNCE
 
 if __name__ == "__main__":
     #-----------------------------------------------------------------------------#
     # Setup                                                                       #
     #-----------------------------------------------------------------------------#
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "config", "mixer_sinkhorn_siamese.yaml")
+    config_path = os.path.join(script_dir, "config", "sinkhorn_siamese.yaml")
     config = OmegaConf.load(config_path)
     print("="*60)
     print("Experiment Config")

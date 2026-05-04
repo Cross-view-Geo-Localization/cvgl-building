@@ -204,6 +204,7 @@ def train_one_epoch_cross_distill(
     student,
     dataloader,
     loss_fn,
+    cross_distill_loss_fn,
     optimizer,
     scheduler=None,
     scaler=None,
@@ -212,9 +213,9 @@ def train_one_epoch_cross_distill(
     Training loop for cross-model distillation.
 
     The dataloader yields:
-        (query_img, reference_img, index (for positive pair), labels (for classification))
+        (query_img, reference_img, index (for positive pair))
     The loss_fn should be a custom loss that accepts the signature
-    loss_fn(logits_list1, logits_list2, embed1, embed2, logit_scale, labels)
+    loss_fn(s_logits, t_logits)
     """
 
     student.train()
@@ -224,18 +225,17 @@ def train_one_epoch_cross_distill(
     bar    = tqdm(dataloader, total=len(dataloader))
     optimizer.zero_grad(set_to_none=True)
 
-    for query, reference, _ids, labels in bar:
+    for query, reference, _ids in bar:
         query     = query.to(device)
         reference = reference.to(device)
-        labels    = labels.to(device)
 
         if scaler is not None:
             from torch.amp import autocast
             with autocast(device_type="cuda", enabled=config.training.mixed_precision):
-                s_logits_list1, s_embed1, s_logits_list2, s_embed2 = student(query, reference)
+                s_embed1, s_embed2 = student(query, reference)
                 t_embed1, t_embed2 = teacher(query, reference)
+                loss = loss_fn(s_embed1, s_embed2, student.logit_scale.exp()) + cross_distill_loss_fn(s_embed1, s_embed2, t_embed1, t_embed2)
 
-                loss = loss_fn(s_logits_list1, s_logits_list2, s_embed1, s_embed2, student.logit_scale.exp(), labels)
             scaler.scale(loss).backward()
             if config.training.clip_grad:
                 scaler.unscale_(optimizer)
@@ -243,10 +243,10 @@ def train_one_epoch_cross_distill(
             scaler.step(optimizer)
             scaler.update()
         else:
-            s_logits_list1, s_embed1, s_logits_list2, s_embed2 = student(query, reference)
+            s_embed1, s_embed2 = student(query, reference)
             t_embed1, t_embed2 = teacher(query, reference)
 
-            loss = loss_fn(s_logits_list1, s_logits_list2, s_embed1, s_embed2, student.logit_scale.exp(), labels)
+            loss = loss_fn(s_embed1, s_embed2, student.logit_scale.exp()) + cross_distill_loss_fn(s_embed1, s_embed2, t_embed1, t_embed2)
             loss.backward()
             if config.training.clip_grad:
                 torch.nn.utils.clip_grad_value_(student.parameters(), config.training.clip_grad)
