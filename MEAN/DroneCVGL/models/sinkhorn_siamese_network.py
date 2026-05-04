@@ -4,8 +4,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from MEAN.DroneCVGL.utils.registry import register_model
-from MEAN.DroneCVGL.utils.predict import ForwardMode
+from utils.registry import register_model
+from utils.predict import ForwardMode
 
 
 #-----------------------------------------------------------------#

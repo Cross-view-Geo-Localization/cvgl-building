@@ -5,20 +5,18 @@ import torch
 from torch.utils.data import DataLoader
 from omegaconf import OmegaConf
 
-sys.path.insert(0, "/home/tts26/sonh/SparK/DroneCVGL")
+sys.path.insert(0, "/home/tts26/sonh/MEAN/DroneCVGL")
 
-from MEAN.DroneCVGL.data.sues200 import SUES200DatasetEval, get_transforms
-from MEAN.DroneCVGL.core.metrics.sues200 import evaluate
-from MEAN.DroneCVGL.utils.registry import build_model
-from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork, AttentionSinkhornSiameseNetwork 
-from MEAN.DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
-from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork
-from MEAN.DroneCVGL.models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
+from data.sues200 import SUES200DatasetEval, get_transforms
+from core.metrics.sues200 import evaluate
+from utils.registry import build_model
+from models.sinkhorn_siamese_network import SinkhornSiameseNetwork, AttentionSinkhornSiameseNetwork 
+from models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from models.siamese_network import SiameseNetwork
+from models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-from pretrain.models import load_sparse_checkpoint_to_dense
 
 query_folder = './data/SUES-200-512x512/drone_view_512' 
 ref_folder = './data/SUES-200-512x512/satellite-view'
@@ -33,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--config", 
         type=str, 
-        default="sparK_siamese.yaml", 
+        default="MEAN_siamese.yaml", 
         help="Tên file config nằm trong thư mục config/"
     )
     args = parser.parse_args()
@@ -66,25 +64,7 @@ if __name__ == '__main__':
     
 
     # load pretrained Checkpoint    
-    if "sparse" in config.model and config.model.sparse is False:
-        ckpt = load_sparse_checkpoint_to_dense(config.training.checkpoint_start, config.model.model_args.model_name)
-        new_ckpt = {}
-        for key, value in ckpt.items():
-            # The checkpoint keys are missing the 'model.' prefix
-            if not key.startswith('model.'):
-                new_key = 'model.' + key
-            else:
-                new_key = key
-            new_ckpt[new_key] = value
-
-        missing_keys, unexpected_keys = model.load_state_dict(new_ckpt, strict=False)
-        print(f"Missing keys: {len(missing_keys)}")
-        print(f"Unexpected keys: {len(unexpected_keys)}")
-        if len(missing_keys) > 0:
-            print(f"First 5 missing keys: {missing_keys[:5]}")
-            
-        print(f"[load_pretrained_hgnetv2_from_sparse] Loaded weights from {config.training.checkpoint_start}")
-    elif config.training.checkpoint_start is not None:
+    if config.training.checkpoint_start is not None:
         print("Start from:", config.training.checkpoint_start)
         ckpt = torch.load(config.training.checkpoint_start, map_location="cpu")
         state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt

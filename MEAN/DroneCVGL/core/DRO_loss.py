@@ -38,6 +38,9 @@ def get_negative_mask(batch_size):
     negative_mask = torch.cat((negative_mask, negative_mask), 0)
     return negative_mask
 
+from utils.registry import register_loss
+
+@register_loss("DRO_Loss")
 class DRO_Loss(nn.Module):
     def __init__(self, temperature, tau_plus, batch_size, beta, estimator, N=1.2e6):
         super(DRO_Loss, self).__init__()

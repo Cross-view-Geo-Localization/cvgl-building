@@ -4,6 +4,10 @@ import torch.nn.functional as F
 import torch.distributed.nn
 from torch.autograd import Variable
 import numpy as np
+
+from utils.registry import register_loss
+
+@register_loss("CDA_loss")
 class CDA_loss(nn.Module):
     """
     this loss function should support mse loss and infoNCE loss.

@@ -37,6 +37,9 @@ class U1652DatasetTrain(Dataset):
         self.ids = list(set(self.query_dict.keys()).intersection(self.reference_dict.keys()))
         self.ids.sort()
         
+        self.map_dict = {i: self.ids[i] for i in range(len(self.ids))}
+        self.reverse_map_dict = {v: k for k, v in self.map_dict.items()}
+
         self.pairs = []
         
         for idx in self.ids:
@@ -47,8 +50,10 @@ class U1652DatasetTrain(Dataset):
             query_path = self.query_dict[idx]["path"]
             query_imgs = self.query_dict[idx]["files"]
             
+            label = self.reverse_map_dict[idx]
+            
             for q in query_imgs:
-                self.pairs.append((idx, "{}/{}".format(query_path, q), reference_img))
+                self.pairs.append((idx, label, "{}/{}".format(query_path, q), reference_img))
         
         self.transforms_query = transforms_query
         self.transforms_reference = transforms_reference
@@ -71,7 +76,7 @@ class U1652DatasetTrain(Dataset):
 
     def __getitem__(self, index):
         
-        idx, query_img_path, reference_img_path = self.samples[index]
+        idx, label, query_img_path, reference_img_path = self.samples[index]
         
         # for query there is only one file in folder
         query_img = cv2.imread(query_img_path)
@@ -92,7 +97,7 @@ class U1652DatasetTrain(Dataset):
         if self.transforms_reference is not None:
             reference_img = self.transforms_reference(image=reference_img)['image']
         
-        return query_img, reference_img, idx
+        return query_img, reference_img, idx, label
     
     def __len__(self):
         return len(self.samples)
@@ -132,7 +137,7 @@ class U1652DatasetTrain(Dataset):
                 if len(pair_pool) > 0:
                     pair = pair_pool.pop(0)
                     
-                    idx, _, _ = pair
+                    idx, _, _, _ = pair
                     
                     if idx not in idx_batch and pair not in pairs_epoch:
                         

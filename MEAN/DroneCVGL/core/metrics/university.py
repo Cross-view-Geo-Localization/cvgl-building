@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import gc
-from MEAN.DroneCVGL.utils.predict import predict, ForwardMode
+from utils.predict import predict, ForwardMode
 
 def evaluate(config,
             model,

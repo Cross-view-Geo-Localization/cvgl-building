@@ -17,13 +17,13 @@ model:
   model_args:
     # ── Backbone ──────────────────────────────────────────────────────────────
     model_name: "hgnetv2_b1.ssld_stage1_in22k_in1k"
-    pretrained:  true
+    pretrained:  True
     img_size:    384
 
     # ── Head ──────────────────────────────────────────────────────────────────
     num_classes: 701          # University-1652 drone-side unique IDs
     block:       2            # must be 2 – DEG (flag=True) returns exactly 2 views
-    return_f:    true         # return pre-classifier embeddings for triplet loss
+    return_f:    True         # return pre-classifier embeddings for triplet loss
 
     # ── DEG Module (Dilated Edge-aware Gating) ─────────────────────────────
     # flag=True is hardcoded when block=2; these two args control
@@ -79,7 +79,7 @@ data:
 eval:
   batch_size_eval:     64
   eval_every_n_epoch:  1
-  normalize_features:  true
+  normalize_features:  True
   eval_reference_n:    -1     # -1 → use all reference images
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -89,33 +89,33 @@ training:
   # ── Loss weights (set 0.0 to disable a loss term completely) ────────────
   weight_infonce:  1.00
   weight_cls:      0.10     # cross-entropy averaged over all classifier heads
-  weight_triplet:  0.10     # triplet on DEG part embeds (needs return_f: true)
+  weight_triplet:  0.10     # triplet on DEG part embeds (needs return_f: True)
   weight_dsa:      0.75     # DSA InfoNCE on MSF-pooled features
 
   # ── Must match model output format ──────────────────────────────────────
-  # true  → model returns (branch_q, branch_r) tuples  (SiameseNetwork + DEG/DSAM)
-  # false → model returns plain (feat_q, feat_r)
-  handcraft_model: true
+  # True  → model returns (branch_q, branch_r) tuples  (SiameseNetwork + DEG/DSAM)
+  # False → model returns plain (feat_q, feat_r)
+  handcraft_model: True
 
   # Must mirror model_args.return_f so train loop unpacks correctly
-  return_f: true
+  return_f: True
 
   # ── Runtime ─────────────────────────────────────────────────────────────
-  mixed_precision:  false
-  custom_sampling:  true
+  mixed_precision:  False
+  custom_sampling:  True
   seed:             1
   epochs:           20
   batch_size:       64       # effective batch = 2 × batch_size (query + reference)
-  verbose:          true
+  verbose:          True
   gpu_ids:          [0]
 
   # ── Hard-negative sampling ───────────────────────────────────────────────
-  sim_sample: true
+  sim_sample: True
 
   # ── Optimizer ───────────────────────────────────────────────────────────
   clip_grad:          100    # max gradient value; null to disable
-  decay_exclude_bias: false
-  grad_checkpointing: false
+  decay_exclude_bias: False
+  grad_checkpointing: False
 
   # ── Learning rate ────────────────────────────────────────────────────────
   lr:            1.0e-4
@@ -127,9 +127,11 @@ training:
   prob_flip: 0.5
 
   # ── Misc ─────────────────────────────────────────────────────────────────
-  zero_shot:        false   # run eval before first training epoch
+  zero_shot:        False   # run eval before first training epoch
   checkpoint_start: null    # path to resume checkpoint; null = train from scratch
   num_workers:      8       # set 0 on Windows
-  cudnn_benchmark:      true
-  cudnn_deterministic:  false
+  cudnn_benchmark:      True
+  cudnn_deterministic:  False
   device: "cuda"
+
+zero_shot: False

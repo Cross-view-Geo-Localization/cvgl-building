@@ -65,6 +65,9 @@ class SUES200DatasetTrain(Dataset):
         # use only folders that exists for both ref and query
         self.ids = list(set(self.query_dict.keys()).intersection(self.ref_dict.keys()))
         self.ids.sort()
+
+        self.map_dict = {i: self.ids[i] for i in range(len(self.ids))}
+        self.reverse_map_dict = {v: k for k, v in self.map_dict.items()}
         
         self.pairs = []
         
@@ -75,9 +78,11 @@ class SUES200DatasetTrain(Dataset):
             
             ref_path = self.ref_dict[idx]["path"]
             ref_imgs = self.ref_dict[idx]["files"]
+
+            label = self.reverse_map_dict[idx]
             
             for g in ref_imgs:
-                self.pairs.append((idx, query_img, "{}/{}".format(ref_path, g)))
+                self.pairs.append((idx, label, query_img, "{}/{}".format(ref_path, g)))
         
         self.transforms_query = transforms_query
         self.transforms_ref = transforms_ref
@@ -88,7 +93,7 @@ class SUES200DatasetTrain(Dataset):
         
     def __getitem__(self, index):
         
-        idx, query_img_path, ref_img_path = self.samples[index]
+        idx, label, query_img_path, ref_img_path = self.samples[index]
         
         # for query there is only one file in folder
         query_img = cv2.imread(query_img_path)
@@ -109,7 +114,7 @@ class SUES200DatasetTrain(Dataset):
         if self.transforms_ref is not None:
             ref_img = self.transforms_ref(image=ref_img)['image']
         
-        return query_img, ref_img, idx
+        return query_img, ref_img, idx, label
 
     def __len__(self):
         return len(self.samples)

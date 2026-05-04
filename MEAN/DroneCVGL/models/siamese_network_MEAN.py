@@ -3,8 +3,8 @@ import timm
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from MEAN.DroneCVGL.utils.registry import register_model
-from MEAN.DroneCVGL.utils.predict import ForwardMode
+from utils.registry import register_model
+from utils.predict import ForwardMode
 
 
 # ─────────────────────────────────────────────
@@ -40,7 +40,7 @@ def weights_init_classifier(m):
 # ─────────────────────────────────────────────
 
 class DEG_module(nn.Module):
-    def __init__(self, channel, reduction=16, spatial_kernel_size=7, flag=False):
+    def __init__(self, channel, reduction=16, spatial_kernel_size=7, deg_dropout=0.01, flag=False):
         super(DEG_module, self).__init__()
         self.FC11 = nn.Conv2d(channel, channel // 4, kernel_size=3,
                               stride=1, padding=1, bias=False, dilation=1)
@@ -52,7 +52,7 @@ class DEG_module(nn.Module):
         for m in [self.FC11, self.FC12, self.FC13, self.FC1]:
             m.apply(weights_init_kaiming)
         self.flag    = flag
-        self.dropout = nn.Dropout(p=0.01)
+        self.dropout = nn.Dropout(p=deg_dropout)
 
     def forward(self, x):
         x1   = (self.FC11(x) + self.FC12(x) + self.FC13(x)) / 3
@@ -236,6 +236,7 @@ class SiameseNetwork_MEAN(nn.Module):
         num_proj_layers: int = 2,
         msf_out_dim: int    = 512,
         fat_temperature: float = 0.10,
+        deg_dropout: float = 0.01,
     ):
         super(SiameseNetwork_MEAN, self).__init__()
 
@@ -276,7 +277,7 @@ class SiameseNetwork_MEAN(nn.Module):
 
         # ── DEG ──────────────────────────────────────────────────────────────
         # flag=True → returns (out1, out2); block=2 guarantees correct indexing
-        self.DEG = DEG_module(self.in_planes, flag=True)
+        self.DEG = DEG_module(self.in_planes, deg_dropout=deg_dropout, flag=True)
 
         # ── Domain Space Alignment (SparseMLP1D → FAT → MSF) ─────────────────
         hid_channels = self.in_planes * proj_hid_mult

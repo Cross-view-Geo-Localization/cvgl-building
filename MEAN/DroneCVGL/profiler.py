@@ -8,15 +8,16 @@ import torch.utils.benchmark as benchmark
 from torch.profiler import profile, record_function, ProfilerActivity
 from omegaconf import OmegaConf
 
-from MEAN.DroneCVGL.utils.registry import build_model
-from MEAN.DroneCVGL.utils.logger import Logger
-from MEAN.DroneCVGL.utils.predict import ForwardMode
+from utils.registry import build_model
+from utils.logger import Logger
+from utils.predict import ForwardMode
 # MODELS
-from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork
-from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork
-from MEAN.DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork
-from MEAN.DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
-from MEAN.DroneCVGL.models.siamese_network_with_pretrained_model import siamese_network_with_pretrained_model
+from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
+from models.siamese_network import SiameseNetwork
+from models.aspp import ASPPSinkhornSiameseNetwork
+from models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
+from models.siamese_network_MEAN import SiameseNetwork_MEAN
 
 # Create a fpga wrapper to profile in CPU and CUDA
 class FpgaProfilerWrapper(nn.Module):
@@ -58,7 +59,7 @@ class QueryProfilerWrapper(nn.Module):
         return self.base_model(image1, mode=ForwardMode.QUERY)
     
 
-config = OmegaConf.load("./SparK/DroneCVGL/config/sparK_siamese.yaml")
+config = OmegaConf.load("./MEAN/DroneCVGL/config/MEAN_siamese.yaml")
 script_dir = os.path.dirname(os.path.abspath(__file__))
 summary_path = os.path.join(os.path.join(script_dir, "summary_results", config.model.model_name))
 os.makedirs(summary_path, exist_ok=True)

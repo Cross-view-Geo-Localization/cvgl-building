@@ -16,17 +16,17 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Now import using the full module path
-from MEAN.DroneCVGL.data.sues200 import SUES200DatasetEval, get_transforms
-from MEAN.DroneCVGL.core.metrics.sues200 import compute_mAP
-from MEAN.DroneCVGL.utils.predict import predict, ForwardMode
-from MEAN.DroneCVGL.utils.registry import build_model
+from data.sues200 import SUES200DatasetEval, get_transforms
+from core.metrics.sues200 import compute_mAP
+from utils.predict import predict, ForwardMode
+from utils.registry import build_model
 
-from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork
-from MEAN.DroneCVGL.models.asymmetric_network import AsymmetricNetwork
-from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork
-from MEAN.DroneCVGL.models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
+from models.siamese_network import SiameseNetwork
+from models.asymmetric_network import AsymmetricNetwork
+from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
+from models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
 
-from MEAN.DroneCVGL.core.loss import InfoNCE
+from core.loss import InfoNCE
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if project_root not in sys.path:

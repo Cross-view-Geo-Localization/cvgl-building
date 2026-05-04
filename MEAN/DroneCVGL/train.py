@@ -13,29 +13,28 @@ from transformers import (get_constant_schedule_with_warmup,
                           get_polynomial_decay_schedule_with_warmup,
                           get_cosine_schedule_with_warmup)
 
-from MEAN.DroneCVGL.utils.logger import Logger
-from MEAN.DroneCVGL.utils.registry import build_model, build_loss
-from MEAN.DroneCVGL.utils.train_one_epoch import train_one_epoch
-from MEAN.DroneCVGL.data.transforms import get_transforms_train, get_transforms_val
-from MEAN.DroneCVGL.data.university import U1652DatasetTrain, U1652DatasetEval
-from MEAN.DroneCVGL.core.metrics.university import evaluate, calc_sim
+from utils.logger import Logger
+from utils.registry import build_model, build_loss
+from utils.train_one_epoch import train_one_epoch
+from data.transforms import get_transforms_train, get_transforms_val
+from data.university import U1652DatasetTrain, U1652DatasetEval
+from core.metrics.university import evaluate, calc_sim
 
 
 # MODELS and LOSSES
-from MEAN.DroneCVGL.models.siamese_network import SiameseNetwork
-from MEAN.DroneCVGL.models.siamese_network_max_avg import SiameseNetworkMaxAvg
-from MEAN.DroneCVGL.models.asymmetric_network import AsymmetricNetwork
-from MEAN.DroneCVGL.models.sinkhorn_siamese_network import SinkhornSiameseNetwork
-from MEAN.DroneCVGL.models.aspp import ASPPSinkhornSiameseNetwork
-from MEAN.DroneCVGL.models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
-from MEAN.DroneCVGL.models.siamese_network_MEAN import SiameseNetwork_MEAN
-from MEAN.DroneCVGL.core.loss import InfoNCE, ColBERTLoss
+from models.siamese_network import SiameseNetwork
+from models.siamese_network_max_avg import SiameseNetworkMaxAvg
+from models.asymmetric_network import AsymmetricNetwork
+from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
+from models.aspp import ASPPSinkhornSiameseNetwork
+from models.siamese_network_with_pretrained_model import SiameseNetworkWithPretrainedModel
+from models.siamese_network_MEAN import SiameseNetwork_MEAN
+from core.loss import InfoNCE, ColBERTLoss
+from core.triplet_loss import TripletLoss
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-from pretrain.models import load_sparse_checkpoint_to_dense
 
 if __name__ == "__main__":
     #-----------------------------------------------------------------------------#
@@ -116,11 +115,7 @@ if __name__ == "__main__":
     if config.training.grad_checkpointing:
         model.set_grad_checkpointing(True)
 
-    if "sparse" in config.model and config.model.sparse is False:
-        ckpt = load_sparse_checkpoint_to_dense(config.training.checkpoint_start, config.model.model_args.model_name)
-        model.load_state_dict(ckpt, strict=False)
-        print(f"[load_pretrained_hgnetv2_from_sparse] Loaded weights from {config.training.checkpoint_start}")
-    elif config.training.checkpoint_start is not None:
+    if config.training.checkpoint_start is not None:
         print("Start from:", config.training.checkpoint_start)
         ckpt = torch.load(config.training.checkpoint_start, map_location="cpu")
         state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt

@@ -4,8 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch.amp import autocast
-from MEAN.DroneCVGL.core.cal_loss import cal_loss, cal_kl_loss, cal_triplet_loss
-from MEAN.DroneCVGL.utils.predict import ForwardMode
+from core.cal_loss import cal_loss, cal_kl_loss, cal_triplet_loss
+from utils.predict import ForwardMode
  
  
 # ──────────────────────────────────────────────────────────────────────────────
@@ -190,10 +190,13 @@ def train_one_epoch(
             # ── 5. Triplet loss ───────────────────────────────────────────────
             loss_triplet = torch.tensor(0.0, device=config.training.device)
             if w_triplet > 0 and feat_tri_q is not None and "Triplet" in loss_functions:
-                loss_triplet = loss_functions["Triplet"](feat_tri_q, feat_tri_r)
+                # Concatenate query and reference features for triplet mining
+                feat_combined = torch.cat([feat_tri_q, feat_tri_r], dim=0)  # (2B, D)
+                labels_combined = torch.cat([labels, labels], dim=0)        # (2B,)
+                loss_triplet = loss_functions["Triplet"](feat_combined, labels_combined)
  
             # ── 6. DSA loss ───────────────────────────────────────────────────
-            # Operates on the MSF-aligned spatial features (pooled)
+            # Operates on the MSF-aligned spatial features (pooled)d
             loss_dsa = torch.tensor(0.0, device=config.training.device)
             if w_dsa > 0 and feat_dsa_q is not None and "DSA_loss" in loss_functions:
                 loss_dsa = loss_functions["DSA_loss"](feat_dsa_q, feat_dsa_r, scale_blocks)

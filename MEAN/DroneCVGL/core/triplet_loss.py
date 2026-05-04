@@ -103,7 +103,9 @@ def hard_example_mining(dist_mat, labels, return_inds=False):
 
     return dist_ap, dist_an
 
+from utils.registry import register_loss
 
+@register_loss("Triplet")
 class TripletLoss(object):
     """
     Triplet loss using HARDER example mining,
