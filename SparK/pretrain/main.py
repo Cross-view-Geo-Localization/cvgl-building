@@ -24,7 +24,10 @@ from sampler import DistInfiniteBatchSampler, worker_init_fn
 from spark import SparK
 from utils import arg_util, misc, lamb
 # from utils.imagenet import build_dataset_to_pretrain
-from utils.university import build_dataset_to_pretrain
+from utils.university import build_dataset_to_pretrain as build_university_dataset_to_pretrain
+from utils.university160k import build_dataset_to_pretrain as build_university160k_dataset_to_pretrain
+from utils.aerial import build_dataset_to_pretrain as build_aerial_dataset_to_pretrain
+
 from utils.lr_control import lr_wd_annealing, get_param_groups
 
 
@@ -44,19 +47,29 @@ def main_pt():
     
     # build data
     datasets = []
-    if args.data_paths:
-        for path in args.data_paths:
+    if args.data_path:
+        for path in args.data_path:
             # Kiểm tra path có tồn tại không trước khi build (tùy chọn nhưng nên có)
             if os.path.exists(path):
                 print(f"Building dataset from: {path}")
-                dataset = build_dataset_to_pretrain(path, args.input_size)
+                if "University-Release" in path:
+                    dataset = build_university_dataset_to_pretrain(path, args.input_size)
+                    print("Loaded University Release")
+                elif "University160k" in path:
+                    dataset = build_university160k_dataset_to_pretrain(path, args.input_size)
+                    print("Loaded University160k")
+                elif "AerialExtreMatch" in path:
+                    dataset = build_aerial_dataset_to_pretrain(path, args.input_size)
+                    print("Loaded AerialExtreMatch")
+                else:
+                    raise ValueError("Wrong dataset name. Please check path name in if else")
                 datasets.append(dataset)
             else:
                 print(f"Warning: Path {path} does not exist. Skipping...")
 
     # Gom các dataset lại bằng ConcatDataset
     if len(datasets) == 0:
-        raise ValueError("No datasets were built. Please check your --data_paths.")
+        raise ValueError("No datasets were built. Please check your --data_path.")
     
     dataset_train = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
     
@@ -165,7 +178,7 @@ def pre_train_one_ep(ep, args: arg_util.Args, tb_lg: misc.TensorboardLogger, itr
     if early_clipping:
         params_req_grad = [p for p in model.parameters() if p.requires_grad]
     
-    for it, inp in enumerate(me.log_every(iters_train, itrt_train, 3, header)):
+    for it, inp in enumerate(me.log_every(iters_train, itrt_train, 20, header)):
         # adjust lr and wd
         min_lr, max_lr, min_wd, max_wd = lr_wd_annealing(optimizer, args.lr, args.wd, args.wde, it + ep * iters_train, args.wp_ep * iters_train, args.ep * iters_train)
         

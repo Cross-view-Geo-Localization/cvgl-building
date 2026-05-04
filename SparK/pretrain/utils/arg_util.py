@@ -9,6 +9,7 @@ import os
 import sys
 
 from tap import Tap
+from typing import List
 
 import dist
 
@@ -17,7 +18,7 @@ class Args(Tap):
     # environment
     exp_name: str = 'Pretrain HGNetv2 on University dataset'
     exp_dir: str = './logs/hgnetv2_university'   # will be created if not exists
-    data_path: str = './data/University-Release'
+    data_path: List[str] = ['./data/University-Release']    
     init_weight: str = ''   # use some checkpoint as model weight initialization; ONLY load model weights
     resume_from: str = ''   # resume the experiment from some checkpoint.pth; load model weights, optimizer states, and last epoch
     
@@ -90,6 +91,9 @@ class Args(Tap):
                 'rema': self.remain_time, 'fini': self.finish_time,
             }, fp)
             fp.write('\n')
+    
+    def configure(self) -> None:
+        self.add_argument('--data_path', nargs='+')
 
 
 def init_dist_and_get_args():

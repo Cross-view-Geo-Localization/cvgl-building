@@ -62,7 +62,7 @@ class AerialExtreMatchDataset(Dataset):
         """
         Args:
             root_folder:   root path that contains `drone/` and `satellite/` dirs.
-                           e.g. "/data/AerialExtreMatch_pretrain"
+                           e.g. "/data/AerialExtreMatchCustom"
             transform:     image transform applied in __getitem__.
             view:          which camera view to load ('drone' or 'satellite').
             is_valid_file: optional callable to filter file paths.
@@ -136,7 +136,7 @@ def build_dataset_to_pretrain(dataset_path: str, input_size: int, two_view: bool
     both drone and satellite views for richer pre-training data.
 
     Folder expected at `dataset_path`:
-        AerialExtreMatch_pretrain/
+        AerialExtreMatchCustom/
           drone/     {Place}/*.jpg
           satellite/ {Place}/*.jpg
 

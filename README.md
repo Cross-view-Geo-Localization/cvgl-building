@@ -95,6 +95,16 @@ CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py \
     --model=hgnetv2_b1.ssld_stage1_in22k_in1k \
     --bs=128
 ```
+
+## or Pretraining on multiple-dataset
+```shell script
+CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py \
+    --exp_dir=./logs/hgnetv2_3data_100ep \
+    --ep=100 \
+    --data_path ./data/University-Release ./data/University160k/ ./data/AerialExtreMatchCustomed/ \
+    --model=hgnetv2_b1.ssld_stage1_in22k_in1k \
+    -bs=128
+```
 Alternatively, you can configure the parameters in the [`SparK/pretrain/utils/arg_util.py`](SparK/pretrain/utils/arg_util.py) file and run the training process using the following command:
 ```shell script
 CUDA_VISIBLE_DEVICES=0 python3 SparK/pretrain/main.py
