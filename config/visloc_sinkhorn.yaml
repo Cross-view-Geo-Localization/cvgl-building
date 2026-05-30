@@ -72,8 +72,8 @@ training:
   zero_shot: False
   
   # Checkpoint to start from
-  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SinkhornSiameseNetwork/20260414_085604/weights_e24_92.1701.pth"
-  checkpoint_start: null
+  checkpoint_start: "/home/tts26/sonh/university_checkpoint/SinkhornSiameseNetwork/20260529_004537/weights_e07_0.7461.pth"
+  # checkpoint_start: null
 
   # set num_workers to 0 if on Windows
   num_workers: 12
