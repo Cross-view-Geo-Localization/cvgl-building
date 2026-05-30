@@ -1,10 +1,15 @@
+✅ Replaced pool in head.global_pool
 Warming up GPU...
+
+------------------------------
+ Profiling Model Complexity 
+------------------------------
 ====================================================================================================================================================================================
 Layer (type:depth-idx)                                                           Input Shape               Output Shape              Param #                   Mult-Adds
 ====================================================================================================================================================================================
 QueryProfilerWrapper                                                             [1, 3, 384, 384]          [1, 2048]                 --                        --
 ├─SiameseNetworkMaxAvg: 1-1                                                      [1, 3, 384, 384]          [1, 2048]                 2                         --
-│    └─HighPerfGpuNet: 2-1                                                       [1, 3, 384, 384]          [1, 2048, 12, 12]         --                        --
+│    └─HighPerfGpuNet: 2-1                                                       [1, 3, 384, 384]          [1, 2048]                 --                        --
 │    │    └─StemV2: 3-1                                                          [1, 3, 384, 384]          [1, 32, 96, 96]           --                        --
 │    │    │    └─ConvBNAct: 4-1                                                  [1, 3, 384, 384]          [1, 24, 192, 192]         --                        --
 │    │    │    │    └─Conv2d: 5-1                                                [1, 3, 384, 384]          [1, 24, 192, 192]         648                       23,887,872
@@ -45,62 +50,72 @@ QueryProfilerWrapper                                                            
 │    │    │    └─HighPerfGpuStage: 4-10                                          [1, 512, 24, 24]          [1, 1024, 12, 12]         --                        --
 │    │    │    │    └─ConvBNAct: 5-27                                            [1, 512, 24, 24]          [1, 512, 12, 12]          5,632                     664,576
 │    │    │    │    └─Sequential: 5-28                                           [1, 512, 12, 12]          [1, 1024, 12, 12]         1,273,162                 182,565,125
-│    │    └─ClassifierHead: 3-3                                                  [1, 1024, 12, 12]         [1, 2048, 12, 12]         --                        --
-│    │    │    └─SelectAdaptivePool2d: 4-11                                      [1, 1024, 12, 12]         [1, 1024, 12, 12]         --                        --
-│    │    │    │    └─Identity: 5-29                                             [1, 1024, 12, 12]         [1, 1024, 12, 12]         --                        --
-│    │    │    │    └─Identity: 5-30                                             [1, 1024, 12, 12]         [1, 1024, 12, 12]         --                        --
-│    │    │    └─Sequential: 4-12                                                [1, 1024, 12, 12]         [1, 2048, 12, 12]         --                        --
-│    │    │    │    └─Conv2d: 5-31                                               [1, 1024, 12, 12]         [1, 2048, 12, 12]         2,097,152                 301,989,888
-│    │    │    │    └─ReLU: 5-32                                                 [1, 2048, 12, 12]         [1, 2048, 12, 12]         --                        --
-│    │    │    │    └─LearnableAffineBlock: 5-33                                 [1, 2048, 12, 12]         [1, 2048, 12, 12]         2                         1
-│    │    │    └─Dropout: 4-13                                                   [1, 2048, 12, 12]         [1, 2048, 12, 12]         --                        --
-│    │    │    └─Identity: 4-14                                                  [1, 2048, 12, 12]         [1, 2048, 12, 12]         --                        --
-│    │    │    └─Identity: 4-15                                                  [1, 2048, 12, 12]         [1, 2048, 12, 12]         --                        --
-│    └─AdaptiveAvgPool2d: 2-2                                                    [1, 2048, 12, 12]         [1, 2048, 1, 1]           --                        --
-│    └─AdaptiveMaxPool2d: 2-3                                                    [1, 2048, 12, 12]         [1, 2048, 1, 1]           --                        --
+│    │    └─ClassifierHead: 3-3                                                  [1, 1024, 12, 12]         [1, 2048]                 --                        --
+│    │    │    └─SelectAdaptivePool2d: 4-11                                      [1, 1024, 12, 12]         [1, 1024, 1, 1]           --                        --
+│    │    │    │    └─MixedAdaptivePool2d: 5-29                                  [1, 1024, 12, 12]         [1, 1024, 1, 1]           1                         --
+│    │    │    │    └─Identity: 5-30                                             [1, 1024, 1, 1]           [1, 1024, 1, 1]           --                        --
+│    │    │    └─Sequential: 4-12                                                [1, 1024, 1, 1]           [1, 2048, 1, 1]           --                        --
+│    │    │    │    └─Conv2d: 5-31                                               [1, 1024, 1, 1]           [1, 2048, 1, 1]           2,097,152                 2,097,152
+│    │    │    │    └─ReLU: 5-32                                                 [1, 2048, 1, 1]           [1, 2048, 1, 1]           --                        --
+│    │    │    │    └─LearnableAffineBlock: 5-33                                 [1, 2048, 1, 1]           [1, 2048, 1, 1]           2                         1
+│    │    │    └─Dropout: 4-13                                                   [1, 2048, 1, 1]           [1, 2048, 1, 1]           --                        --
+│    │    │    └─Flatten: 4-14                                                   [1, 2048, 1, 1]           [1, 2048]                 --                        --
+│    │    │    └─Identity: 4-15                                                  [1, 2048]                 [1, 2048]                 --                        --
 ====================================================================================================================================================================================
-Total params: 4,294,160
-Trainable params: 4,294,160
+Total params: 4,294,161
+Trainable params: 4,294,161
 Non-trainable params: 0
-Total mult-adds (Units.GIGABYTES): 1.73
+Total mult-adds (Units.GIGABYTES): 1.43
 ====================================================================================================================================================================================
 Input size (MB): 1.77
-Forward/backward pass size (MB): 190.88
+Forward/backward pass size (MB): 186.20
 Params size (MB): 17.18
-Estimated Total Size (MB): 209.83
+Estimated Total Size (MB): 205.14
 ====================================================================================================================================================================================
-<torch.utils.benchmark.utils.common.Measurement object at 0x7fdcbfd7b850>
+
+[Summary Metrics]
+Total Parameters:  4.29 M
+Total Computation: 2.8563 GFLOPs
+
+------------------------------
+ Profiling Inference Time 
+------------------------------
+<torch.utils.benchmark.utils.common.Measurement object at 0x7f5d9a71b950>
 Latency Measurement: SiameseNetworkMaxAvg
 setup: import torch
-  9.05 ms
+  10.74 ms
   1 measurement, 200 runs , 1 thread
+
+[Summary Metrics]
+Mean Inference Time:   10.74 ms
+Median Inference Time: 10.74 ms
 Peak VRAM Usage: 39.35 MB
 -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
                                                    Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg       CPU Mem  Self CPU Mem      CUDA Mem  Self CUDA Mem    # of Calls   Total FLOPs  
 -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
-                                        model_inference         0.00%       0.000us         0.00%       0.000us       0.000us      23.200ms      1985.43%      23.200ms      23.200ms           0 b           0 b           0 b           0 b             1            --  
-                                        model_inference        25.94%       7.251ms        99.91%      27.924ms      27.924ms       0.000us         0.00%       1.169ms       1.169ms           0 b           0 b           0 b    -186.38 Mb             1            --  
-                                           aten::conv2d         0.92%     257.010us        26.81%       7.493ms     174.249us       0.000us         0.00%     524.862us      12.206us           0 b           0 b      31.88 Mb           0 b            43  3456018432.000  
-                                      aten::convolution         2.10%     586.356us        25.89%       7.236ms     168.272us       0.000us         0.00%     524.862us      12.206us           0 b           0 b      31.88 Mb           0 b            43            --  
-                                     aten::_convolution         2.41%     673.894us        23.79%       6.649ms     154.636us       0.000us         0.00%     524.862us      12.206us           0 b           0 b      31.88 Mb           0 b            43            --  
-                                aten::cudnn_convolution        15.24%       4.260ms        18.57%       5.191ms     167.445us     465.216us        39.81%     465.216us      15.007us           0 b           0 b      28.89 Mb      28.89 Mb            31            --  
-                                       aten::batch_norm         1.14%     319.965us        24.02%       6.712ms     159.815us       0.000us         0.00%     193.374us       4.604us           0 b           0 b      31.96 Mb           0 b            42            --  
-                           aten::_batch_norm_impl_index         0.83%     233.372us        22.87%       6.392ms     152.197us       0.000us         0.00%     193.374us       4.604us           0 b           0 b      31.96 Mb           0 b            42            --  
-                                 aten::cudnn_batch_norm        11.58%       3.236ms        22.04%       6.159ms     146.640us     193.374us        16.55%     193.374us       4.604us           0 b           0 b      31.96 Mb           0 b            42            --  
-void cudnn::bn_fw_inf_1C11_kernel_NCHW<float, float,...         0.00%       0.000us         0.00%       0.000us       0.000us     193.374us        16.55%     193.374us       4.604us           0 b           0 b           0 b           0 b            42            --  
+                                        model_inference         0.00%       0.000us         0.00%       0.000us       0.000us      26.434ms      2303.46%      26.434ms      26.434ms           0 b           0 b           0 b           0 b             1            --  
+                                        model_inference        26.32%       8.250ms        99.93%      31.329ms      31.329ms       0.000us         0.00%       1.148ms       1.148ms           0 b           0 b           0 b    -181.88 Mb             1            --  
+                                           aten::conv2d         1.01%     318.061us        28.77%       9.020ms     209.761us       0.000us         0.00%     517.792us      12.042us           0 b           0 b      30.77 Mb           0 b            43  2856232960.000  
+                                      aten::convolution         2.32%     726.578us        27.76%       8.702ms     202.364us       0.000us         0.00%     517.792us      12.042us           0 b           0 b      30.77 Mb           0 b            43            --  
+                                     aten::_convolution         1.67%     522.466us        25.44%       7.975ms     185.467us       0.000us         0.00%     517.792us      12.042us           0 b           0 b      30.77 Mb           0 b            43            --  
+                                aten::cudnn_convolution        16.44%       5.155ms        20.54%       6.438ms     207.672us     457.344us        39.85%     457.344us      14.753us           0 b           0 b      27.78 Mb      27.78 Mb            31            --  
+                                       aten::batch_norm         0.60%     188.245us        20.81%       6.525ms     155.355us       0.000us         0.00%     195.873us       4.664us           0 b           0 b      31.96 Mb           0 b            42            --  
+                           aten::_batch_norm_impl_index         0.96%     300.037us        20.21%       6.337ms     150.873us       0.000us         0.00%     195.873us       4.664us           0 b           0 b      31.96 Mb           0 b            42            --  
+                                 aten::cudnn_batch_norm         7.37%       2.311ms        19.26%       6.037ms     143.729us     195.873us        17.07%     195.873us       4.664us           0 b           0 b      31.96 Mb           0 b            42            --  
+void cudnn::bn_fw_inf_1C11_kernel_NCHW<float, float,...         0.00%       0.000us         0.00%       0.000us       0.000us     195.873us        17.07%     195.873us       4.664us           0 b           0 b           0 b           0 b            42            --  
 -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
-Self CPU time total: 27.950ms
-Self CUDA time total: 1.169ms
+Self CPU time total: 31.350ms
+Self CUDA time total: 1.148ms
 
 
 ------------------------------
  Profiling Database Search 
 ------------------------------
 Simulating search across 10000 satellite images (Dim: 2048)
-<torch.utils.benchmark.utils.common.Measurement object at 0x7fdcc044d110>
+<torch.utils.benchmark.utils.common.Measurement object at 0x7f5d9a634990>
 Search Latency: 1 vs 10000 (Dim: 2048)
 setup: import torch
-  177.97 us
+  172.06 us
   1 measurement, 100 runs , 1 thread
 Database Tensor Size: 78.12 MB
 Peak VRAM Usage during Search: 104.52 MB

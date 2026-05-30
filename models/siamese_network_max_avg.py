@@ -64,12 +64,10 @@ class SiameseNetworkMaxAvg(nn.Module):
             self.model = timm.create_model(
                 model_name, pretrained=pretrained, num_classes=0, 
                 img_size=img_size,
-                global_pool=''
             ) 
         else:
             self.model = timm.create_model(
                 model_name, pretrained=pretrained, num_classes=0,
-                global_pool=''
             )
 
         # if "vit" in model_name:
@@ -77,19 +75,19 @@ class SiameseNetworkMaxAvg(nn.Module):
         # else:
         #     self.model = timm.create_model(model_name, pretrained=pretrained, features_only=True, num_classes=0)
 
-        # for name, module in self.model.named_modules():
-        #     if module.__class__.__name__ == "SelectAdaptivePool2d":
-        #         # Thay đúng attribute 'pool' hoặc tên sub-module chứa AdaptiveAvgPool2d
-        #         for child_name, child in module.named_children():
-        #             if isinstance(child, nn.AdaptiveAvgPool2d):
-        #                 setattr(module, child_name, MixedAdaptivePool2d(output_size=1))
-        #                 print(f"✅ Replaced {child_name} in {name}")
+        for name, module in self.model.named_modules():
+            if module.__class__.__name__ == "SelectAdaptivePool2d":
+                # Thay đúng attribute 'pool' hoặc tên sub-module chứa AdaptiveAvgPool2d
+                for child_name, child in module.named_children():
+                    if isinstance(child, nn.AdaptiveAvgPool2d):
+                        setattr(module, child_name, MixedAdaptivePool2d(output_size=1))
+                        print(f"✅ Replaced {child_name} in {name}")
         
         self.logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
         
-        # Khởi tạo 2 module pooling dành cho CNN feature maps
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        # # Khởi tạo 2 module pooling dành cho CNN feature maps
+        # self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        # self.max_pool = nn.AdaptiveMaxPool2d(1)
         
         self.alpha = nn.Parameter(torch.tensor(0.5))
         
@@ -119,21 +117,21 @@ class SiameseNetworkMaxAvg(nn.Module):
         """
         features = self.model(x)
         
-        if features.dim() == 4:
-            feat_avg = self.avg_pool(features).flatten(1) # [B, C]
-            feat_max = self.max_pool(features).flatten(1) # [B, C]
-        elif features.dim() == 3:
-            feat_avg = features.mean(dim=1)               # [B, C]
-            feat_max = features.max(dim=1)[0]             # [B, C]
-        else:
-            raise ValueError(f"Unexpected feature dimension from backbone: {features.dim()}")
+        # if features.dim() == 4:
+        #     feat_avg = self.avg_pool(features).flatten(1) # [B, C]
+        #     feat_max = self.max_pool(features).flatten(1) # [B, C]
+        # elif features.dim() == 3:
+        #     feat_avg = features.mean(dim=1)               # [B, C]
+        #     feat_max = features.max(dim=1)[0]             # [B, C]
+        # else:
+        #     raise ValueError(f"Unexpected feature dimension from backbone: {features.dim()}")
         
-        weight = torch.clamp((self.alpha + 1.0) / 2.0, min=0.0, max=1.0)
-        # weight = torch.sigmoid(self.alpha)
+        # weight = torch.clamp((self.alpha + 1.0) / 2.0, min=0.0, max=1.0)
+        # # weight = torch.sigmoid(self.alpha)
         
-        f_approx = weight * feat_avg + (1.0 - weight) * feat_max
+        # f_approx = weight * feat_avg + (1.0 - weight) * feat_max
         
-        return f_approx
+        return features
     
         # # Nối đặc trưng average và max. Output shape: [B, 2*C]
         # return torch.cat([feat_avg, feat_max], dim=1)

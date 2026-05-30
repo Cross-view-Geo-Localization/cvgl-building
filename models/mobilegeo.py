@@ -43,7 +43,7 @@ class DustbinSinkhornPooling(nn.Module):
         
         for _ in range(self.num_iters):
             T_aug = T_aug / torch.sum(T_aug, dim=2, keepdim=True) # Normalize rows
-            # T_aug = T_aug / torch.sum(T_aug, dim=1, keepdim=True) # Normalize columns
+            T_aug = T_aug / torch.sum(T_aug, dim=1, keepdim=True) # Normalize columns
             
         T = T_aug[:, :, :-1] # (B, N, M)
         

@@ -40,7 +40,9 @@ from utils.registry import build_model, build_loss
 from utils.train_one_epoch import train_one_epoch_semi_pos
 from data.transforms import get_transforms_train, get_transforms_val
 from data.uav1 import UAV1DatasetTrain, UAV1DatasetEval
+from data.visloc import VisLocDatasetTrain, VisLocDatasetEval
 from core.metrics.uav1 import evaluate as evaluate_uav1
+from core.metrics.visloc import evaluate as evaluate_visloc
 
 # Model / Loss registry — import to trigger registration
 from models.siamese_network import SiameseNetwork                           
@@ -48,7 +50,7 @@ from models.siamese_network_max_avg import SiameseNetworkMaxAvg
 from models.asymmetric_network import AsymmetricNetwork                     
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork         
 from models.aspp import ASPPSinkhornSiameseNetwork                         
-from core.loss import InfoNCE, ColBERTLoss                                  
+from core.loss import InfoNCE, ColBERTLoss, WeightedInfoNCE                                  
 
 
 if __name__ == "__main__":
@@ -56,7 +58,7 @@ if __name__ == "__main__":
     # Config
     # -------------------------------------------------------------------------
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "config", "mixer_sinkhorn_siamese.yaml")
+    config_path = os.path.join(script_dir, "config", "visloc_sinkhorn.yaml")
     config = OmegaConf.load(config_path)
     print("="*60)
     print("Experiment Config")
@@ -87,8 +89,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # Output directory
     # -------------------------------------------------------------------------
-    run_name   = f"{config.model.model_name}_{time.strftime('%Y%m%d_%H%M%S')}"
-    model_path = os.path.join(args.save_root, run_name)
+    model_path = f"{config.model.model_path}/{config.model.model_name}/{time.strftime('%Y%m%d_%H%M%S')}"
     os.makedirs(model_path, exist_ok=True)
 
     shutil.copyfile(os.path.abspath(__file__), os.path.join(model_path, "train_semi_pos.py"))
@@ -125,14 +126,14 @@ if __name__ == "__main__":
     # Transforms
     # -------------------------------------------------------------------------
     train_drone_tf, train_sate_tf = get_transforms_train(
-        image_size_sat=sate_size[0],
-        image_size_drone=drone_size[0],
+        image_size_sat=sate_size,
+        image_size_drone=drone_size,
         query_mean=query_mean, query_std=query_std,
         ref_mean=ref_mean,     ref_std=ref_std,
     )
     val_drone_tf, val_sate_tf = get_transforms_val(
-        image_size_sat=sate_size[0],
-        image_size_drone=drone_size[0],
+        image_size_sat=sate_size,
+        image_size_drone=drone_size,
         query_mean=query_mean, query_std=query_std,
         ref_mean=ref_mean,     ref_std=ref_std,
     )
@@ -140,14 +141,12 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # Datasets & Dataloaders
     # -------------------------------------------------------------------------
-    train_dataset = UAV1DatasetTrain(
-        data_root=args.data_root,
-        pairs_meta_file=args.train_meta,
+    train_dataset = VisLocDatasetTrain(
+        data_root=config.data.data_folder,
+        pairs_meta_file=config.data.train_pairs_meta_file,
         transforms_query=train_drone_tf,
         transforms_gallery=train_sate_tf,
-        prob_flip=config.training.prob_flip,
-        shuffle_batch_size=config.training.batch_size,
-        mode=args.mode,
+        shuffle_batch_size=config.training.batch_size
     )
     train_loader = DataLoader(
         train_dataset,
@@ -158,15 +157,20 @@ if __name__ == "__main__":
     )
 
     # ---- Eval: query (drone) ----
-    query_dataset = UAV1DatasetEval(
-        pairs_meta_file=args.test_meta,
-        data_root=args.data_root,
+    query_dataset_test = VisLocDatasetEval(
+        pairs_meta_file=config.data.test_pairs_meta_file,
+        data_root=config.data.data_folder,
         view="drone",
         mode="pos",
         transforms=val_drone_tf,
     )
+
+    query_img_list = query_dataset_test.images_name
+    pairs_drone2sate_dict = query_dataset_test.pairs_drone2sate_dict
+    query_center_loc_xy_list = query_dataset_test.images_center_loc_xy
+
     query_loader = DataLoader(
-        query_dataset,
+        query_dataset_test,
         batch_size=config.eval.batch_size_eval,
         num_workers=config.training.num_workers,
         shuffle=False,
@@ -174,33 +178,33 @@ if __name__ == "__main__":
     )
 
     # ---- Eval: gallery (satellite) ----
-    gallery_dataset = UAV1DatasetEval(
-        pairs_meta_file=args.test_meta,
-        data_root=args.data_root,
+    gallery_dataset_test = VisLocDatasetEval(
+        pairs_meta_file=config.data.test_pairs_meta_file,
+        data_root=config.data.data_folder,
         view="sate",
-        sate_img_dir=args.sate_dir,
-        query_mode="D2S",
+        sate_img_dir=config.data.sate_img_dir,
         transforms=val_sate_tf,
     )
+
+    gallery_img_list = gallery_dataset_test.images_name
+    gallery_center_loc_xy_list = gallery_dataset_test.images_center_loc_xy
+    gallery_topleft_loc_xy_list = gallery_dataset_test.images_topleft_loc_xy
+    print('jyxjyx, test len', len(query_img_list), len(gallery_img_list), flush=True)
+
     gallery_loader = DataLoader(
-        gallery_dataset,
+        gallery_dataset_test,
         batch_size=config.eval.batch_size_eval,
         num_workers=config.training.num_workers,
         shuffle=False,
         pin_memory=True,
     )
 
-    # Convenience handles for GT name lists used by evaluate()
-    query_names   = query_dataset.images_name
-    gallery_names = gallery_dataset.images_name
-    pairs_dict    = query_dataset.pairs_drone2sate_dict   # {drone_name: [sate_names]}
-
     if config.training.custom_sampling:
         train_dataset.shuffle()
 
     print(f"Train pairs       : {len(train_dataset)}")
-    print(f"Query images      : {len(query_dataset)}")
-    print(f"Gallery tiles     : {len(gallery_dataset)}")
+    print(f"Query images      : {len(query_dataset_test)}")
+    print(f"Gallery tiles     : {len(gallery_dataset_test)}")
 
     # -------------------------------------------------------------------------
     # Loss
@@ -264,10 +268,20 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     if config.zero_shot:
         print(f"\n{30*'-'}[ Zero Shot ]{30*'-'}")
-        results = evaluate_uav1(
-            config, model, query_loader, gallery_loader,
-            query_names, gallery_names, pairs_dict,
-            ranks=[1, 5, 10], cleanup=True,
+        results = evaluate_visloc(
+            config=config,
+            model=model,
+            query_loader=query_loader,
+            gallery_loader=gallery_loader, 
+            query_list=query_img_list,
+            gallery_list=gallery_img_list,
+            query_center_loc_xy_list=query_center_loc_xy_list,
+            gallery_center_loc_xy_list=gallery_center_loc_xy_list,
+            gallery_topleft_loc_xy_list=gallery_topleft_loc_xy_list,
+            pairs_dict=pairs_drone2sate_dict,
+            ranks_list=[1, 5, 10],
+            step_size=1000,
+            cleanup=True
         )
         print(results)
 
@@ -291,19 +305,28 @@ if __name__ == "__main__":
         if (epoch % config.eval.eval_every_n_epoch == 0) or epoch == config.training.epochs:
             print(f"\n{30*'-'}[ Evaluate ]{30*'-'}")
 
-            results = evaluate_uav1(
-                config, model, query_loader, gallery_loader,
-                query_names, gallery_names, pairs_dict,
-                ranks=[1, 5, 10], cleanup=True,
+            r1_test = evaluate_visloc(
+                config=config,
+                model=model,
+                query_loader=query_loader,
+                gallery_loader=gallery_loader, 
+                query_list=query_img_list,
+                gallery_list=gallery_img_list,
+                pairs_dict=pairs_drone2sate_dict,
+                query_center_loc_xy_list=query_center_loc_xy_list,
+                gallery_center_loc_xy_list=gallery_center_loc_xy_list,
+                gallery_topleft_loc_xy_list=gallery_topleft_loc_xy_list,
+                ranks_list=[1, 5, 10],
+                step_size=1000,
+                cleanup=True
             )
 
-            r1 = results["r1"]
-            if r1 > best_score:
-                best_score = r1
+            if r1_test > best_score:
+                best_score = r1_test
                 ckpt_path  = os.path.join(
-                    model_path, f"weights_e{epoch:02d}_{r1:.4f}.pth")
+                    model_path, f"weights_e{epoch:02d}_{r1_test:.4f}.pth")
                 torch.save(model.state_dict(), ckpt_path)
-                print(f"New best R@1: {r1:.4f} — checkpoint saved → {ckpt_path}")
+                print(f"New best R@1: {r1_test:.4f} — checkpoint saved → {ckpt_path}")
 
         # ---- Reshuffle for next epoch ----
         if config.training.custom_sampling:

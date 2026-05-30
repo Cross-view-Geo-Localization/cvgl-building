@@ -64,8 +64,8 @@ training:
   zero_shot: False
   
   # Checkpoint to start from
-  # checkpoint_start: null
-  checkpoint_start: "/home/tts26/sonh/university_checkpoint/SiameseNetworkMaxAvg/20260408_085404/weights_e20_91.3618.pth"
+  checkpoint_start: null
+  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SiameseNetworkMaxAvg/20260408_085404/weights_e20_91.3618.pth"
 
   # set num_workers to 0 if on Windows
   num_workers: 8

@@ -21,6 +21,7 @@ from utils.predict import predict, ForwardMode
 from utils.registry import build_model
 
 from models.siamese_network import SiameseNetwork
+from models.siamese_network_max_avg import SiameseNetworkMaxAvg
 from models.asymmetric_network import AsymmetricNetwork
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
 from core.loss import InfoNCE
@@ -105,7 +106,7 @@ def eval_query(qf, ql, gf, gl):
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "..", "config", "sinkhorn_siamese.yaml")
+    config_path = os.path.join(script_dir, "..", "config", "base.yaml")
     config = OmegaConf.load(config_path)
 
     config.training.device = 'cuda' if torch.cuda.is_available() else 'cpu'

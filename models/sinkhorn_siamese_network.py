@@ -47,7 +47,7 @@ class DustbinSinkhornPooling(nn.Module):
         
         for _ in range(self.num_iters):
             T_aug = T_aug / torch.sum(T_aug, dim=2, keepdim=True) # Normalize rows
-            # T_aug = T_aug / torch.sum(T_aug, dim=1, keepdim=True) # Normalize columns
+            T_aug = T_aug / torch.sum(T_aug, dim=1, keepdim=True) # Normalize columns
             
         T = T_aug[:, :, :-1] # (B, N, M)
         
@@ -178,7 +178,7 @@ class SinkhornSiameseNetwork(nn.Module):
         else:
             self.model = timm.create_model(model_name, pretrained=pretrained, features_only=True, num_classes=0)
         
-        self.sinkhorn = FPGADustbinSinkhornPooling(
+        self.sinkhorn = DustbinSinkhornPooling(
             feature_dim=dim_prototype,
             num_prototypes=num_prototypes,
             num_iters=num_iters,
@@ -694,3 +694,4 @@ class MixerSinkhornSiameseNetwork(nn.Module):
             
         else:
             raise ValueError(f"Invalid forward mode: {mode}. Must be of type ForwardMode.")
+        

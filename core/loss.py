@@ -36,7 +36,6 @@ class ColBERTLoss(nn.Module):
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
         self.loss_function = nn.CrossEntropyLoss(**kwargs)
         self.num_prototypes = num_prototypes
-        # Ngưỡng để quyết định xem một prototype có "đáng tin" hay không
         self.threshold = threshold 
 
     def forward(self, features1, features2, logit_scale, weights1=None, weights2=None):
@@ -219,7 +218,68 @@ class MobileGeoLoss(nn.Module):
         total_loss = self.w_loss[0] * ds_loss + self.w_loss[1] * distill_loss + self.w_loss[2] * metric_loss + self.w_loss[3] * uapa_loss
 
         return total_loss
+    
 
+@register_loss("SelfDistillationLoss")
+class SelfDistillationLoss(nn.Module):
+    def __init__(self, device=None, **kwargs):
+        super().__init__()
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        num_stages = kwargs.get('num_stages', 4)
+        self.loss_function = nn.CrossEntropyLoss(**kwargs)
+        self.distillation_loss_fn = nn.KLDivLoss(reduction='batchmean')  # KL Divergence Loss for distillation
+        self.alpha = nn.Parameter(torch.ones(num_stages - 1))  # Weights for Hierarchical Distillation Loss
+        self.temperature = nn.Parameter(torch.ones([]) * 3.0)  # Learnable temperature for scaling the logits in distillation
+        self.w_loss = nn.Parameter(torch.tensor([0.0, 2.0])) # Weights for different loss components
+
+    def forward(self, features_list1, features_list2, logit_scale):
+        total_loss = 0.0
+        metric_loss = 0.0
+        distill_loss = 0.0
+        num_stages = len(features_list1)
+
+        # InfoNCE Loss
+        for i in range(num_stages):
+            feat1 = F.normalize(features_list1[i], dim=-1)
+            feat2 = F.normalize(features_list2[i], dim=-1)
+            
+            logits1 = logit_scale * feat1 @ feat2.T
+            logits2 = logits1.T
+            labels = torch.arange(logits1.shape[0], device=logits1.device)
+            
+            metric_loss += (self.loss_function(logits1, labels) + self.loss_function(logits2, labels)) / (2 * num_stages)
+
+
+        # Self Distillation Loss
+        final_features1 = F.normalize(features_list1[-1], dim=-1)
+        final_features2 = F.normalize(features_list2[-1], dim=-1)
+        logits_per_image1 =  final_features1 @ final_features2.T / self.temperature
+        logits_per_image2 = logits_per_image1.T
+        stage_weights = F.softmax(self.alpha, dim=0)
+
+        for i in range(num_stages - 1):
+            features_i1 = F.normalize(features_list1[i], dim=-1)
+            features_i2 = F.normalize(features_list2[i], dim=-1)
+            logits_i1 = features_i1 @ final_features2.T / self.temperature
+            logits_i2 = features_i2 @ final_features1.T / self.temperature
+            
+            loss1 = self.distillation_loss_fn(
+                F.log_softmax(logits_per_image1, dim=1),  
+                F.softmax(logits_i1.detach(), dim=1)
+            ) * (self.temperature ** 2) 
+
+            loss2 = self.distillation_loss_fn(
+                F.log_softmax(logits_per_image2, dim=1),  
+                F.softmax(logits_i2.detach(), dim=1)
+            ) * (self.temperature ** 2) 
+
+            distill_loss += stage_weights[i] * (loss1 + loss2) / 2
+
+        loss_a = torch.exp(-self.w_loss[0]) * metric_loss + 0.5 * self.w_loss[0]
+        loss_b = torch.exp(-self.w_loss[1]) * distill_loss + 0.5 * self.w_loss[1]
+        total_loss = loss_a + loss_b
+
+        return total_loss
 
 # ----------------------------------------------------------------
 # Intra InfoNCE Loss (positive/negative pair in drone and sat)
@@ -231,7 +291,8 @@ class IntraInfoNCE(nn.Module):
         super().__init__()
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
         self.loss_function = nn.CrossEntropyLoss(**kwargs)
-        self.alpha = nn.Parameter(torch.ones([]) * 1.0)  # Weighting factor for intra-modal loss 
+        self.alpha = nn.Parameter(torch.zeros([]))  # Weighting factor for intra-modal loss
+        self.infonce = InfoNCE(device=device, **kwargs) 
 
 
     def forward(self, image_features1, image_features2, logit_scale):
@@ -240,25 +301,17 @@ class IntraInfoNCE(nn.Module):
         image_features2 = F.normalize(image_features2, dim=-1)
         
         # NORMAL INFONCE LOSS
-        logits_per_image1 = logit_scale * image_features1 @ image_features2.T
-        
-        logits_per_image2 = logits_per_image1.T
-        
-        labels = torch.arange(logits_per_image1.shape[0], device=logits_per_image1.device)
-        
-        loss = (self.loss_function(logits_per_image1, labels) + self.loss_function(logits_per_image2, labels)) / 2
+        loss = self.infonce(image_features1, image_features2, logit_scale)
 
         # DRONE INFONCE LOSS
-        logits_per_image_d1 = logit_scale * image_features1 @ image_features1.T
-        logits_per_image_d2 = logits_per_image_d1.T
-        loss_d = (self.loss_function(logits_per_image_d1, labels) + self.loss_function(logits_per_image_d2, labels)) / 2
+        loss_d = self.infonce(image_features1, image_features1, logit_scale)
 
         # SATELLITE INFONCE LOSS
-        logits_per_image_s1 = logit_scale * image_features2 @ image_features2.T
-        logits_per_image_s2 = logits_per_image_s1.T
-        loss_s = (self.loss_function(logits_per_image_s1, labels) + self.loss_function(logits_per_image_s2, labels)) / 2
+        loss_s = self.infonce(image_features2, image_features2, logit_scale)
 
-        total_loss = loss + self.alpha * loss_d + (1 / self.alpha) * loss_s
+        total_loss = loss + \
+                     0.5 * self.alpha * loss_d + \
+                     0.5 * (1 / self.alpha) * loss_s
 
         return total_loss  
  
@@ -288,3 +341,72 @@ class CrossDistillationLoss(nn.Module):
         ) * (self.temperature ** 2)
 
         return distill_loss
+    
+
+# ----------------------------------------------------------------
+# DAC Loss 
+# ----------------------------------------------------------------
+class DSALoss(nn.Module):
+    def __init__(self, device='cuda' if torch.cuda.is_available() else 'cpu'):
+        super().__init__()
+        self.device = device
+
+    def mse_loss(self, pred, target):
+        N = pred.size(0)
+        pred_norm = nn.functional.normalize(pred, dim=1)
+        target_norm = nn.functional.normalize(target, dim=1)
+        loss = 1 - 1 * (pred_norm * target_norm).sum() / N
+        return loss
+    
+    def forward(self, image_features1, image_features2):
+        b, c, n = image_features1.shape
+
+        feat1 = image_features1.transpose(2, 1).reshape(b, c*n)  
+        feat2 = image_features2.transpose(2, 1).reshape(b, c*n)
+
+        loss = self.mse_loss(feat1, feat2)
+        return loss
+
+
+@register_loss("DACLoss")
+class DACLoss(nn.Module):
+    def __init__(self, device=None, w_infonce=1, w_cls=0.1, w_dsa=0.6, label_smoothing=0.1):
+        super().__init__()
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.w_infonce = w_infonce
+        self.w_cls = w_cls
+        self.w_dsa = w_dsa
+
+        self.infonce = InfoNCE(device=device, label_smoothing=label_smoothing)
+        self.cls_loss = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.dsa_loss = DSALoss(device=device)
+
+    def forward(self, image_features1, image_features2, labels, logit_scale):
+        total_loss = 0
+        features1, features2 = image_features1[-2], image_features2[-2]  # -- for contrastive
+        features_tri_1, features_tri_2 = image_features1[1], image_features2[1]  # -- for triplet
+        features_cls_1, features_cls_2 = image_features1[0], image_features2[0]  # -- for classifier
+        features_fine_1, features_fine_2 = image_features1[-1], image_features2[-1]  # -- for fine-grained
+        # features_dsa_1, features_dsa_2 = image_features1[0], image_features2[0]  # -- for DSA loss
+
+        # InfoNCE
+        loss = self.infonce(features1, features2, logit_scale)
+        # Classification
+        loss_cls = self._cal_loss(features_cls_1, labels, self.cls_loss) + self._cal_loss(features_cls_2, labels, self.cls_loss)
+        # Domain Space Alignment Loss
+        # loss_dsa = self.dsa_loss(features_dsa_1, features_dsa_2)
+
+        total_loss += self.w_infonce * loss + self.w_cls * loss_cls 
+        return total_loss
+
+    def _cal_loss(self, outputs, labels, loss_func):
+        loss = 0
+        if isinstance(outputs, list):
+            for i in outputs:
+                loss += loss_func(i, labels)
+            loss = loss / len(outputs)
+        else:
+            loss = loss_func(outputs, labels)
+        return loss
+
+

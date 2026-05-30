@@ -1,4 +1,8 @@
 Warming up GPU...
+
+------------------------------
+ Profiling Model Complexity 
+------------------------------
 ===========================================================================================================================================================
 Layer (type:depth-idx)                                  Input Shape               Output Shape              Param #                   Mult-Adds
 ===========================================================================================================================================================
@@ -209,38 +213,50 @@ Forward/backward pass size (MB): 73.88
 Params size (MB): 18.94
 Estimated Total Size (MB): 94.59
 ===========================================================================================================================================================
-<torch.utils.benchmark.utils.common.Measurement object at 0x7f762426fb90>
+
+[Summary Metrics]
+Total Parameters:  4.77 M
+Total Computation: 2.3351 GFLOPs
+
+------------------------------
+ Profiling Inference Time 
+------------------------------
+<torch.utils.benchmark.utils.common.Measurement object at 0x7f9482eaf8d0>
 Latency Measurement: SiameseNetwork
 setup: import torch
-  18.99 ms
+  14.41 ms
   1 measurement, 200 runs , 1 thread
+
+[Summary Metrics]
+Mean Inference Time:   14.41 ms
+Median Inference Time: 14.41 ms
 Peak VRAM Usage: 33.62 MB
 -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
                                                    Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg       CPU Mem  Self CPU Mem      CUDA Mem  Self CUDA Mem    # of Calls  Total MFLOPs  
 -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
-                                        model_inference         0.00%       0.000us         0.00%       0.000us       0.000us      48.152ms      3890.02%      48.152ms       9.630ms           0 b           0 b           0 b           0 b             5            --  
-                                        model_inference        24.86%      10.303ms        99.94%      41.414ms      41.414ms       0.000us         0.00%       1.238ms       1.238ms           0 b           0 b           0 b     -85.25 Mb             1            --  
-                                           aten::conv2d         1.12%     462.288us        40.91%      16.953ms     238.777us       0.000us         0.00%     814.399us      11.470us           0 b           0 b      35.23 Mb           0 b            71      2335.113  
-                                      aten::convolution         2.71%       1.124ms        39.80%      16.491ms     232.266us       0.000us         0.00%     814.399us      11.470us           0 b           0 b      35.23 Mb           0 b            71            --  
-                                     aten::_convolution         1.71%     707.126us        37.09%      15.367ms     216.439us       0.000us         0.00%     814.399us      11.470us           0 b           0 b      35.23 Mb           0 b            71            --  
-                                aten::cudnn_convolution        19.50%       8.079ms        35.38%      14.660ms     206.479us     814.399us        65.79%     814.399us      11.470us           0 b           0 b      35.23 Mb      35.23 Mb            71            --  
-                                       aten::batch_norm         0.83%     342.796us        23.99%       9.940ms     139.999us       0.000us         0.00%     254.818us       3.589us           0 b           0 b      35.54 Mb           0 b            71            --  
-                           aten::_batch_norm_impl_index         1.37%     568.580us        23.16%       9.597ms     135.171us       0.000us         0.00%     254.818us       3.589us           0 b           0 b      35.54 Mb           0 b            71            --  
-                                 aten::cudnn_batch_norm         8.72%       3.614ms        21.79%       9.029ms     127.162us     254.818us        20.59%     254.818us       3.589us           0 b           0 b      35.54 Mb           0 b            71            --  
-void cudnn::bn_fw_inf_1C11_kernel_NCHW<float, float,...         0.00%       0.000us         0.00%       0.000us       0.000us     254.818us        20.59%     254.818us       3.589us           0 b           0 b           0 b           0 b            71            --  
+                                        model_inference         0.00%       0.000us         0.00%       0.000us       0.000us      42.174ms      3376.35%      42.174ms       8.435ms           0 b           0 b           0 b           0 b             5            --  
+                                        model_inference        25.74%       8.820ms        99.95%      34.246ms      34.246ms       0.000us         0.00%       1.249ms       1.249ms           0 b           0 b           0 b     -85.25 Mb             1            --  
+                                           aten::conv2d         1.13%     388.111us        40.70%      13.944ms     196.388us       0.000us         0.00%     823.075us      11.593us           0 b           0 b      35.23 Mb           0 b            71      2335.113  
+                                      aten::convolution         2.80%     959.341us        39.56%      13.555ms     190.922us       0.000us         0.00%     823.075us      11.593us           0 b           0 b      35.23 Mb           0 b            71            --  
+                                     aten::_convolution         1.81%     618.526us        36.76%      12.596ms     177.410us       0.000us         0.00%     823.075us      11.593us           0 b           0 b      35.23 Mb           0 b            71            --  
+                                aten::cudnn_convolution        20.54%       7.036ms        34.96%      11.978ms     168.698us     823.075us        65.89%     823.075us      11.593us           0 b           0 b      35.23 Mb      35.23 Mb            71            --  
+                                       aten::batch_norm         0.82%     280.420us        23.51%       8.057ms     113.472us       0.000us         0.00%     256.165us       3.608us           0 b           0 b      35.54 Mb           0 b            71            --  
+                           aten::_batch_norm_impl_index         1.44%     494.291us        22.70%       7.776ms     109.522us       0.000us         0.00%     256.165us       3.608us           0 b           0 b      35.54 Mb           0 b            71            --  
+                                 aten::cudnn_batch_norm         8.62%       2.953ms        21.25%       7.282ms     102.561us     256.165us        20.51%     256.165us       3.608us           0 b           0 b      35.54 Mb           0 b            71            --  
+void cudnn::bn_fw_inf_1C11_kernel_NCHW<float, float,...         0.00%       0.000us         0.00%       0.000us       0.000us     256.165us        20.51%     256.165us       3.608us           0 b           0 b           0 b           0 b            71            --  
 -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
-Self CPU time total: 41.437ms
-Self CUDA time total: 1.238ms
+Self CPU time total: 34.262ms
+Self CUDA time total: 1.249ms
 
 
 ------------------------------
  Profiling Database Search 
 ------------------------------
 Simulating search across 10000 satellite images (Dim: 384)
-<torch.utils.benchmark.utils.common.Measurement object at 0x7f766dba6ed0>
+<torch.utils.benchmark.utils.common.Measurement object at 0x7f94855baf10>
 Search Latency: 1 vs 10000 (Dim: 384)
 setup: import torch
-  89.43 us
+  77.79 us
   1 measurement, 100 runs , 1 thread
 Database Tensor Size: 14.65 MB
 Peak VRAM Usage during Search: 42.93 MB

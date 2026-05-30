@@ -44,23 +44,23 @@ def get_transforms_train(image_size_sat,
                                                A.Sharpen(p=1.0),
                                               ], p=0.3),
                                       A.OneOf([
-                                               A.GridDropout(ratio=0.25, p=1.0),
+                                               A.GridDropout(ratio=0.3, p=1.0),
                                                A.CoarseDropout(
-                                                    num_holes_range=(6, 15),
+                                                    num_holes_range=(8, 20),
                                                     hole_height_range=(int(0.1 * image_size_sat[0]), int(0.2 * image_size_sat[0])),
                                                     hole_width_range=(int(0.1 * image_size_sat[0]), int(0.2 * image_size_sat[0])),
                                                     p=1.0),
                                               ], p=0.3),
+                                    #   A.ShiftScaleRotate(
+                                    #         shift_limit=0.1,  # Shift by max 10%. Forces model to handle off-center targets.
+                                    #         scale_limit=0.10,  # Zoom in/out by 10% to simulate different satellite altitudes.
+                                    #         rotate_limit=180,  # Full 360-degree rotation. Crucial for top-down invariance.
+                                    #         interpolation=cv2.INTER_LINEAR,
+                                    #         border_mode=cv2.BORDER_CONSTANT, # Use black borders. 
+                                    #         value=0, # Black pixel value
+                                    #         p=0.5
+                                    #     ),
                                       A.Normalize(ref_mean, ref_std),
-                                      A.ShiftScaleRotate(
-                                            shift_limit=0.05,  # Shift by max 5%. Forces model to handle off-center targets.
-                                            scale_limit=0.10,  # Zoom in/out by 10% to simulate different satellite altitudes.
-                                            rotate_limit=180,  # Full 360-degree rotation. Crucial for top-down invariance.
-                                            interpolation=cv2.INTER_LINEAR,
-                                            border_mode=cv2.BORDER_CONSTANT, # Use black borders. 
-                                            value=0, # Black pixel value
-                                            p=0.5
-                                        ),
                                       ToTensorV2(),
                                      ])
             
@@ -76,23 +76,23 @@ def get_transforms_train(image_size_sat,
                                             A.Sharpen(p=1.0),
                                             ], p=0.3),
                                     A.OneOf([
-                                            A.GridDropout(ratio=0.25, p=1.0),
+                                            A.GridDropout(ratio=0.3, p=1.0),
                                             A.CoarseDropout(
-                                                num_holes_range=(6, 15),
+                                                num_holes_range=(8, 20),
                                                 hole_height_range=(int(0.1 * image_size_drone[0]), int(0.2 * image_size_drone[0])),
                                                 hole_width_range=(int(0.1 * image_size_drone[0]), int(0.2 * image_size_drone[0])),
                                                 p=1.0),
                                             ], p=0.3),
-                                    A.Normalize(query_mean, query_std),
-                                    A.ShiftScaleRotate(
-                                            shift_limit=0.05,  # Shift by max 5%. Forces model to handle off-center targets.
-                                            scale_limit=0.10,  # Zoom in/out by 10% to simulate different satellite altitudes.
-                                            rotate_limit=15,  # Full 360-degree rotation. Crucial for top-down invariance.
-                                            interpolation=cv2.INTER_LINEAR,
-                                            border_mode=cv2.BORDER_CONSTANT, # Use black borders. 
-                                            value=0, # Black pixel value
-                                            p=0.5
-                                        ),
+                                    # A.ShiftScaleRotate(
+                                    #         shift_limit=0.1,  # Shift by max 10%. Forces model to handle off-center targets.
+                                    #         scale_limit=0.10,  # Zoom in/out by 10% to simulate different satellite altitudes.
+                                    #         rotate_limit=15,  
+                                    #         interpolation=cv2.INTER_LINEAR,
+                                    #         border_mode=cv2.BORDER_CONSTANT, # Use black borders. 
+                                    #         value=0, # Black pixel value
+                                    #         p=0.5
+                                    #     ),
+                                    A.Normalize(ref_mean, ref_std),
                                     ToTensorV2(),
                                    ])
                 

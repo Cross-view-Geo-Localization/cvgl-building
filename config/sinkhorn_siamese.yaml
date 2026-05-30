@@ -26,7 +26,7 @@ model:
   model_path: "./university_checkpoint"
   model_name: "SinkhornSiameseNetwork"
   model_args:
-    model_name: "hgnetv2_b1.ssld_stage2_ft_in1k"
+    model_name: "hgnetv2_b1.ssld_stage1_in22k_in1k"
     pretrained: True
     img_size: 384
     num_prototypes: 16
@@ -62,8 +62,8 @@ training:
   mixed_precision: False
   custom_sampling: True         # use custom sampling instead of random
   seed: 1
-  epochs: 30
-  batch_size: 32               # keep in mind real_batch_size = 2 * batch_size
+  epochs: 20
+  batch_size: 64               # keep in mind real_batch_size = 2 * batch_size
   verbose: True
   gpu_ids: [0,]           # GPU ids for training
 
@@ -76,7 +76,7 @@ training:
   grad_checkpointing: True     # Gradient Checkpointing
   
   # Learning Rate
-  lr: 1e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
+  lr: 2e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
   scheduler: "cosine"           # "polynomial" | "cosine" | "constant" | None
   warmup_epochs: 1
   lr_end: 0.0001               #  only for "polynomial"
@@ -88,7 +88,7 @@ training:
   zero_shot: False
   
   # Checkpoint to start from
-  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SinkhornSiameseNetwork/20260420_132332/weights_e20_93.7868.pth"
+  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SinkhornSiameseNetwork/20260505_025847/weights_e30_91.9667.pth"
   checkpoint_start: null
 
   # set num_workers to 0 if on Windows

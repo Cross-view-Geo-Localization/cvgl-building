@@ -21,18 +21,21 @@ from core.metrics.university import evaluate, calc_sim
 
 # MODELS and LOSSES
 from models.siamese_network import SiameseNetwork
+from models.siamese_network_GeM import SiameseNetworkGeM
 from models.siamese_network_max_avg import SiameseNetworkMaxAvg
 from models.asymmetric_network import AsymmetricNetwork
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
 from models.aspp import ASPPSinkhornSiameseNetwork
-from core.loss import InfoNCE, ColBERTLoss, IntraInfoNCE
+from models.self_distillation_network import SelfDistillationNetwork
+from models.dac import DAC
+from core.loss import InfoNCE, ColBERTLoss, IntraInfoNCE, SelfDistillationLoss
 
 if __name__ == "__main__":
     #-----------------------------------------------------------------------------#
     # Setup                                                                       #
     #-----------------------------------------------------------------------------#
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "config", "sinkhorn_siamese.yaml")
+    config_path = os.path.join(script_dir, "config", "base.yaml")
     config = OmegaConf.load(config_path)
     print("="*60)
     print("Experiment Config")
@@ -152,7 +155,7 @@ if __name__ == "__main__":
                                                 num_workers=config.training.num_workers, shuffle=False, pin_memory=True)
 
     if config.training.custom_sampling:
-        train_dataset.shuffle()
+        train_dataloader.dataset.shuffle()
 
     print(f"Train dataset: {len(train_dataset)}")
     print(f"Query test: {len(query_dataset_test)}")
@@ -264,12 +267,12 @@ if __name__ == "__main__":
         # ------ Reshuffle for next epoch ------
         if config.training.custom_sampling:
             if config.training.sim_sample and sim_dict is not None:
-                train_dataset.hard_negative_sampling_shuffle(
+                train_dataloader.dataset.hard_negative_sampling_shuffle(
                     sim_dict,
                     neighbour_select=config.training.neighbour_select,
                     neighbour_range=config.training.neighbour_range)
             else:
-                train_dataset.shuffle()
+                train_dataloader.dataset.shuffle()
 
     # Save final weights
     torch.save(model.state_dict(), f"{model_path}/weights_end.pth")

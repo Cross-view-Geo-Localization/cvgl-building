@@ -6,7 +6,7 @@ model:
   model_path: "./university_checkpoint"
   model_name: "SiameseNetwork"
   model_args:
-    model_name: "mambaout_femto.in1k"
+    model_name: "hgnetv2_b1.ssld_stage1_in22k_in1k"
     pretrained: True
     img_size: 384
 
@@ -28,7 +28,7 @@ data:
 
 eval:
   # Eval
-  batch_size_eval: 64
+  batch_size_eval: 32
   eval_every_n_epoch: 1        # eval every n Epoch
   normalize_features: True
   eval_reference_n: -1             # -1 for all or int
@@ -38,13 +38,13 @@ training:
   mixed_precision: False
   custom_sampling: True         # use custom sampling instead of random
   seed: 1
-  epochs: 20
+  epochs: 1
   batch_size: 64               # keep in mind real_batch_size = 2 * batch_size
   verbose: True
   gpu_ids: [0,]           # GPU ids for training
 
   # Hard negative sampling
-  sim_sample: True
+  sim_sample: False
 
   # Optimizer 
   clip_grad: 100                     # None | float
@@ -52,7 +52,7 @@ training:
   grad_checkpointing: False     # Gradient Checkpointing
   
   # Learning Rate
-  lr: 1e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
+  lr: 1e-3                   # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
   scheduler: "cosine"           # "polynomial" | "cosine" | "constant" | None
   warmup_epochs: 1
   lr_end: 0.0001               #  only for "polynomial"
@@ -65,7 +65,7 @@ training:
   
   # Checkpoint to start from
   checkpoint_start: null
-  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SiameseNetwork/20260329_094234/weights_e11_86.5962.pth"
+  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SiameseNetworkMaxAvg/20260408_085404/weights_end.pth"
 
   # set num_workers to 0 if on Windows
   num_workers: 8

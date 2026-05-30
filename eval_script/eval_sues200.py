@@ -11,12 +11,14 @@ from utils.registry import build_model
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork, AttentionSinkhornSiameseNetwork 
 from models.siamese_network_max_avg import SiameseNetworkMaxAvg
 from models.siamese_network import SiameseNetwork
+from models.siamese_network_GeM import SiameseNetworkGeM
+from models.dac import DAC
 
 #-----------------------------------------------------------------------------#
 # Config                                                                      #
 #-----------------------------------------------------------------------------#
 
-config = OmegaConf.load("./DroneCVGL/config/sinkhorn_siamese.yaml")
+config = OmegaConf.load("./DroneCVGL/config/base.yaml")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 config.training.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 query_folder = './data/SUES-200-512x512/drone_view_512' 
