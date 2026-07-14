@@ -65,7 +65,7 @@ def get_top10(index, gallery_list):
     return top10
 
 
-def predict(config, model, dataloader):
+def predict(config, model, dataloader, mode=ForwardMode.QUERY):
     
     model.eval()
     
@@ -78,15 +78,16 @@ def predict(config, model, dataloader):
         bar = dataloader
         
     img_features_list = []
+    img_names_list = []
     
     with torch.no_grad():
         
-        for img in bar:
+        for img, img_name in bar:
                     
             with autocast():
             
                 img = img.to(config.training.device)
-                img_feature = model(image1=img, mode=ForwardMode.QUERY)
+                img_feature = model(img, mode=mode)
             
                 # normalize is calculated in fp32
                 if config.eval.normalize_features:
@@ -94,6 +95,7 @@ def predict(config, model, dataloader):
             
             # save features in fp32 for sim calculation
             img_features_list.append(img_feature.to(torch.float32))
+            img_names_list.extend(img_name)
 
         # keep Features on GPU
         img_features = torch.cat(img_features_list, dim=0) 
@@ -101,7 +103,7 @@ def predict(config, model, dataloader):
     if config.training.verbose:
         bar.close()
     
-    return img_features
+    return img_features, img_names_list
 
 
 def evaluate(
@@ -129,12 +131,12 @@ def evaluate(
     print("Extract Features and Compute Scores:")
     model.eval()
 
-    img_features_query = predict(config, model, query_loader)
+    img_features_query, _ = predict(config, model, query_loader, mode=ForwardMode.QUERY)
     # img_features_gallery = predict(config, model, gallery_loader)
 
     all_scores = []
     with torch.no_grad():
-        for gallery_batch in gallery_loader:
+        for gallery_batch, _ in gallery_loader:
             with autocast():
                 gallery_batch = gallery_batch.to(device=config.training.device)
                 gallery_features_batch = model(image1=gallery_batch, mode=ForwardMode.REFERENCE)
@@ -319,3 +321,59 @@ def evaluate(
         print(y.tolist())
     
     return cmc[0]
+
+def calc_sim(
+    config,
+    model,
+    reference_dataloader,
+    step_size=1000,
+    cleanup=True
+): 
+    print("Extract Reference Images Features:")
+    reference_features, reference_labels = predict(config, model, reference_dataloader, mode=ForwardMode.REFERENCE)
+    near_dict = calculate_nearest(
+        reference_features,
+        reference_labels,
+        neighbour_range=config.training.neighbour_range,
+        step_size=step_size
+    )
+
+    # cleanup and free memory on GPU
+    if cleanup:
+        del reference_features, reference_labels
+        gc.collect()
+        
+    return near_dict
+
+def calculate_nearest(reference_features, reference_labels, neighbour_range=64, step_size=1000):
+    R = len(reference_features)
+    steps = R // step_size + 1
+    similarity = []
+
+    for i in range(steps):
+        start = step_size * i
+        end = start + step_size
+        sim_tmp = reference_features[start:end] @ reference_features.T
+        similarity.append(sim_tmp.cpu())
+    
+    # Matrix R x R
+    similarity = torch.cat(similarity, dim=0)
+
+    _, topk_ids = torch.topk(similarity, k=neighbour_range + 1, dim=1)
+    
+    topk_ids = topk_ids.cpu().numpy()
+    
+    labels_np = np.array(reference_labels)
+    
+    nearest_dict = dict()
+
+    for i in range(R):
+        query_name = labels_np[i]
+
+        nearest_names = labels_np[topk_ids[i]]
+
+        nearest = [name for name in nearest_names if name != query_name]
+
+        nearest_dict[query_name] = nearest[:neighbour_range]
+    
+    return nearest_dict

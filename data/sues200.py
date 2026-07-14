@@ -59,9 +59,9 @@ class SUES200DatasetTrain(Dataset):
         super().__init__()
  
 
-        self.query_dict = get_satellite_data(query_folder)
-        self.ref_dict = get_drone_data(ref_folder)
-        
+        self.ref_dict = get_satellite_data(ref_folder)
+        self.query_dict = get_drone_data(query_folder)
+
         # use only folders that exists for both ref and query
         self.ids = list(set(self.query_dict.keys()).intersection(self.ref_dict.keys()))
         self.ids.sort()
@@ -69,15 +69,14 @@ class SUES200DatasetTrain(Dataset):
         self.pairs = []
         
         for idx in self.ids:
+            ref_img = "{}/{}".format(self.ref_dict[idx]["path"],
+                                     self.ref_dict[idx]["files"][0])
             
-            query_img = "{}/{}".format(self.query_dict[idx]["path"],
-                                       self.query_dict[idx]["files"][0])
+            query_path = self.query_dict[idx]["path"]
+            query_imgs = self.query_dict[idx]["files"]
             
-            ref_path = self.ref_dict[idx]["path"]
-            ref_imgs = self.ref_dict[idx]["files"]
-            
-            for g in ref_imgs:
-                self.pairs.append((idx, query_img, "{}/{}".format(ref_path, g)))
+            for q in query_imgs:
+                self.pairs.append((idx, "{}/{}".format(query_path, q), ref_img))
         
         self.transforms_query = transforms_query
         self.transforms_ref = transforms_ref
@@ -85,6 +84,18 @@ class SUES200DatasetTrain(Dataset):
         self.shuffle_batch_size = shuffle_batch_size
         
         self.samples = copy.deepcopy(self.pairs)
+
+        # pairs_by_idx for the hard negative sampling
+        self.pairs_by_idx = {}
+        for pair in self.pairs:
+            idx = pair[0]
+            if idx not in self.pairs_by_idx:
+                self.pairs_by_idx[idx] = []
+            self.pairs_by_idx[idx].append(pair)
+            
+        self.unseen_pools = copy.deepcopy(self.pairs_by_idx)
+        for idx in self.unseen_pools:
+            random.shuffle(self.unseen_pools[idx])
         
     def __getitem__(self, index):
         
@@ -114,10 +125,87 @@ class SUES200DatasetTrain(Dataset):
     def __len__(self):
         return len(self.samples)
     
+
+    def shuffle(self):
+
+            '''
+            custom shuffle function for unique class_id sampling in batch
+            '''
+            
+            print("\nShuffle Dataset:")
+            
+            pair_pool = copy.deepcopy(self.pairs)
+              
+            # Shuffle pairs order
+            random.shuffle(pair_pool)
+            
+            # Lookup if already used in epoch
+            pairs_epoch = set()   
+            idx_batch = set()
+     
+            # buckets
+            batches = []
+            current_batch = []
+             
+            # counter
+            break_counter = 0
+            
+            # progressbar
+            pbar = tqdm()
     
-    def shuffle(self, sim_dict=None, neighbour_select=64, neighbour_range=128):
+            while True:
+                
+                pbar.update()
+                
+                if len(pair_pool) > 0:
+                    pair = pair_pool.pop(0)
+                    
+                    idx, _, _ = pair
+                    
+                    if idx not in idx_batch and pair not in pairs_epoch:
+                        
+                        idx_batch.add(idx)
+                        current_batch.append(pair)
+                        pairs_epoch.add(pair)
+            
+                        break_counter = 0
+                        
+                    else:
+                        # if pair fits not in batch and is not already used in epoch -> back to pool
+                        if pair not in pairs_epoch:
+                            pair_pool.append(pair)
+                            
+                        break_counter += 1
+                        
+                    if break_counter >= 512:
+                        break
+                   
+                else:
+                    break
+
+                if len(current_batch) >= self.shuffle_batch_size:
+                
+                    # empty current_batch bucket to batches
+                    batches.extend(current_batch)
+                    idx_batch = set()
+                    current_batch = []
+       
+            pbar.close()
+            
+            # wait before closing progress bar
+            time.sleep(0.3)
+            
+            self.samples = batches
+            
+            print("Original Length: {} - Length after Shuffle: {}".format(len(self.pairs), len(self.samples))) 
+            print("Break Counter:", break_counter)
+            print("Pairs left out of last batch to avoid creating noise:", len(self.pairs) - len(self.samples))
+            print("First Element ID: {} - Last Element ID: {}".format(self.samples[0][0], self.samples[-1][0])) 
+    
+    
+    def hard_negative_sampling_shuffle(self, sim_dict=None, neighbour_select=64, neighbour_range=128):
         """
-        Custom shuffle function for Sues200 (1-to-N sampling).
+        Custom shuffle function for University-1652 (1-to-N sampling).
         Groups similar classes together, but samples 1 random drone per class per epoch.
         """
         print("\nShuffle Dataset:")
@@ -136,7 +224,7 @@ class SUES200DatasetTrain(Dataset):
  
         # buckets
         batches = []
-        current_batch_pairs = [] # store the actual (idx, img1, img2) tuples here
+        current_batch_pairs = [] # store the actual (idx, query, ref) tuples here
         
         break_counter = 0
         
@@ -231,7 +319,6 @@ class SUES200DatasetTrain(Dataset):
             
         return self.unseen_pools[idx].pop()  
     
-        
         
 class SUES200DatasetEval(Dataset):
     

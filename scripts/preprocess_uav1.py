@@ -49,13 +49,9 @@ Image.MAX_IMAGE_PIXELS = None
 
 @dataclass
 class DatasetConfig:
-    """
-    Central configuration object.  Pass one of these to every pipeline
-    function so no values are ever hardcoded inside a function body.
-    """
     # --- Paths ---
-    root: str = ""                   # Dataset root directory
-    save_root: str = ""              # Output directory for processed data
+    root: str = "/home/tts26/sonh/data/UAV1"                   # Dataset root directory
+    save_root: str = "processed_UAV1"              # Output directory for processed data
 
     # --- Split ---
     split_type: str = "cross-area"   # "cross-area" or "same-area"
@@ -335,7 +331,7 @@ def create_csv_from_srt(srt_file: str, csv_file: str, drone_folder: str,
 def generate_all_csvs(cfg: DatasetConfig) -> None:
     """
     Iterate over every subdirectory in <root>/video_map_DSMAC that contains
-    an SRT file, generate the matching CSV in <root>/drone_og/<name>/.
+    an SRT file, generate the matching CSV in <root>/drone/<name>/.
     """
     src_root = os.path.join(cfg.root, "video_map_DSMAC")
     for dir_name in sorted(os.listdir(src_root)):
@@ -351,7 +347,7 @@ def generate_all_csvs(cfg: DatasetConfig) -> None:
         srt_path = os.path.join(dir_path, srt_files[0])
         csv_name = srt_files[0].replace(".SRT", ".csv").replace(".srt", ".csv")
         base = csv_name.replace(".csv", "")
-        drone_path = os.path.join(cfg.root, "drone_og", base)
+        drone_path = os.path.join(cfg.root, "drone", base)
         csv_path   = os.path.join(drone_path, csv_name)
 
         os.makedirs(drone_path, exist_ok=True)
@@ -465,19 +461,47 @@ def tile_large_satellite(tif_path: str, cfg: DatasetConfig) -> bool:
 # ---------------------------------------------------------------------------
 # Step 3: Copy data into unified drone/ and satellite/ directories
 # ---------------------------------------------------------------------------
+def map_id_to_folder(root_path: str) -> dict:
+        """
+        Parses video_map_DSMAC/Trajectory_{i}/ to map ID i to its drone folder name.
+        """
+        mapping = {}
+        map_dir = os.path.join(root_path, "video_map_DSMAC")
+        
+        if not os.path.exists(map_dir):
+            print(f"WARNING: Mapping directory not found at {map_dir}")
+            return mapping
+            
+        for traj_folder in os.listdir(map_dir):
+            if traj_folder.startswith("Trajectory_"):
+                # Extract the integer ID (e.g., 'Trajectory_1' -> 1)
+                try:
+                    traj_id = int(traj_folder.split("_")[1])
+                except ValueError:
+                    continue
+                
+                traj_path = os.path.join(map_dir, traj_folder)
+                if os.path.isdir(traj_path):
+                    # Find the directory inside (ignoring .tif files)
+                    for item in os.listdir(traj_path):
+                        if item.upper().endswith(".SRT"):
+                            folder_name = os.path.splitext(item)[0]
+                            mapping[traj_id] = folder_name
+                            break
+        return mapping
 
 def copy_satellite(cfg: DatasetConfig) -> None:
     """
     Copy the selected zoom-level tiles from <root>/tile/<satellite_key>/
     into <root>/satellite/.
     """
-    dst_dir  = os.path.join(cfg.root, "satellite")
+    dst_dir  = os.path.join(cfg.root, "tile", "images")
     os.makedirs(dst_dir, exist_ok=True)
 
     tile_dir = cfg.satellite_tile_dir
     zoom_list = sorted(int(z) for z in os.listdir(tile_dir))
     sl = cfg.zoom_keep_slice
-    selected = zoom_list[sl[0]:sl[1]]
+    selected = zoom_list[sl[0]:] if sl[1] == -1 else zoom_list[sl[0]:sl[1]]
 
     for zoom in selected:
         zoom_dir = os.path.join(tile_dir, str(zoom))
@@ -492,21 +516,25 @@ def copy_satellite(cfg: DatasetConfig) -> None:
 def copy_drone(cfg: DatasetConfig) -> None:
     """
     Copy all drone images for every trajectory in cfg.all_ids from
-    <root>/drone_og/<folder>/ into <root>/drone/images/.
+    <root>/drone/<folder>/ into <root>/drone/images/.
     """
     dst_dir      = os.path.join(cfg.root, "drone", "images")
     os.makedirs(dst_dir, exist_ok=True)
 
-    drone_og_path = os.path.join(cfg.root, "drone_og")
-    dir_mapping   = {i: d for i, d in enumerate(sorted(os.listdir(drone_og_path)))}
+    drone_og_path = os.path.join(cfg.root, "drone")
+    dir_mapping   = map_id_to_folder(cfg.root)
 
     for i in cfg.all_ids:
-        idx = i - 1
-        if idx not in dir_mapping:
+        if i not in dir_mapping:
             print(f"WARNING: No drone directory for trajectory {i}, skipping.")
             continue
-        folder = dir_mapping[idx]
+        folder = dir_mapping[i]
         src_dir = os.path.join(drone_og_path, folder)
+
+        if not os.path.exists(src_dir):
+            print(f"WARNING: Drone directory {src_dir} does not exist, skipping.")
+            continue
+
         for fname in os.listdir(src_dir):
             src = os.path.join(src_dir, fname)
             if os.path.isfile(src):
@@ -640,7 +668,7 @@ def _process_per_image(args) -> Optional[dict]:
     zoom_list = sorted(int(z) for z in os.listdir(tile_dir))
     zoom_max  = zoom_list[-1]
     sl = cfg.zoom_keep_slice
-    zoom_list = zoom_list[sl[0]:sl[1]]
+    zoom_list = zoom_list[sl[0]:] if sl[1] == -1 else zoom_list[sl[0]:sl[1]]
 
     sate_lt_lat, sate_lt_lon = cfg.satellite_latlon[0], cfg.satellite_latlon[1]
     sate_rb_lat, sate_rb_lon = cfg.satellite_latlon[2], cfg.satellite_latlon[3]
@@ -746,7 +774,7 @@ def _write_json(pickle_root: str, root: str, split_type: str) -> None:
                 "drone_img_dir":   "drone/images",
                 "drone_img_name":  p["drone_img"],
                 "drone_loc_lat_lon": (p["lat"], p["lon"]),
-                "sate_img_dir":    "satellite",
+                "sate_img_dir":    "tile/images",
                 "pair_pos_sate_img_list":               p["pair_pos_sate_img_list"],
                 "pair_pos_sate_weight_list":            p["pair_pos_sate_weight_list"],
                 "pair_pos_sate_loc_lat_lon_list":       p["pair_pos_sate_loc_lat_lon_list"],
@@ -775,20 +803,19 @@ def process_visloc_data(cfg: DatasetConfig) -> None:
     """
     os.makedirs(cfg.save_root, exist_ok=True)
 
-    drone_og_path = os.path.join(cfg.root, "drone_og")
-    dir_mapping   = {i: d for i, d in enumerate(sorted(os.listdir(drone_og_path)))}
+    drone_og_path = os.path.join(cfg.root, "drone")
+    dir_mapping   = map_id_to_folder(cfg.root)
 
     train_args: List[tuple] = []
     test_args:  List[tuple] = []
     all_args:   List[tuple] = []
 
     for i in cfg.all_ids:
-        idx = i - 1
-        if idx not in dir_mapping:
+        if i not in dir_mapping:
             print(f"ERROR: No trajectory directory for index {i}, skipping.")
             continue
 
-        folder_name = dir_mapping[idx]
+        folder_name = dir_mapping[i]
         file_dir    = os.path.join(drone_og_path, folder_name)
         csv_name    = os.path.basename(file_dir)
         drone_csv   = os.path.join(file_dir, f"{csv_name}.csv")
@@ -859,18 +886,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
 
     # Paths
-    p.add_argument("--root",      required=True,
+    p.add_argument("--root",      required=True, default="/home/tts26/sonh/data/UAV1",
                    help="Dataset root directory (e.g. /data/UAV1)")
-    p.add_argument("--save-root", required=True,
+    p.add_argument("--save-root", required=True, default="/home/tts26/sonh/data/processed_UAV1",
                    help="Output directory for processed labels")
 
     # Split
     p.add_argument("--split", default="cross-area",
                    choices=["cross-area", "same-area"],
                    help="Dataset split strategy")
-    p.add_argument("--train-ids", nargs="+", type=int, default=[1, 3],
+    p.add_argument("--train-ids", nargs="+", type=int, default=[1, 2, 3],
                    help="Trajectory IDs used for training")
-    p.add_argument("--test-ids",  nargs="+", type=int, default=[4],
+    p.add_argument("--test-ids",  nargs="+", type=int, default=[4, 5, 6, 7, 8, 9, 10],
                    help="Trajectory IDs used for testing")
 
     # Satellite overview bounds
@@ -886,7 +913,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    help="Overview satellite pixel width")
 
     # Tile parameters
-    p.add_argument("--tile-size",  type=int,   default=384)
+    p.add_argument("--tile-size",  type=int,   default=480)
     p.add_argument("--zoom-keep-start", type=int, default=-3,
                    help="Start index for zoom-level slice (negative = from end)")
     p.add_argument("--zoom-keep-end",   type=int, default=-1,
@@ -906,7 +933,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--steps", nargs="+",
         choices=["csv", "tile", "tile-large", "copy", "label", "all"],
-        default=["label"],
+        default=["csv", "tile-large", "copy", "label"],
         help=(
             "Pipeline steps to execute:\n"
             "  csv        – build per-trajectory CSVs from SRT files\n"
@@ -917,7 +944,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "  all        – run all steps in order"
         ),
     )
-    p.add_argument("--large-tif", default=None,
+    p.add_argument("--large-tif", default="/home/tts26/sonh/data/video_map_DSMAC/HoaLac_satellite_19.tif",
                    help="Path to the large overview satellite TIF (needed for tile-large)")
 
     return p

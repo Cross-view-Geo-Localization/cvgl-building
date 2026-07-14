@@ -113,8 +113,8 @@ def main():
     if os.name == 'nt':
         config.training.num_workers = 0
 
-    query_folder = 'data/SUES-200-512x512/drone_view_512'
-    ref_folder = 'data/SUES-200-512x512/satellite-view'
+    query_folder = 'data/SUES-200-512x512/test/drone_view_512'
+    ref_folder = 'data/SUES-200-512x512/test/satellite-view'
 
     print("\nModel:", config.model.model_name)
     model = build_model(config)

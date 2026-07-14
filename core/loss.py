@@ -141,13 +141,61 @@ class WeightedInfoNCE(nn.Module):
             eps = [self.label_smoothing for _ in range(image_features1.shape[0])]
         
         logits_per_image2 = logits_per_image1.T
-        
-        # Generate labels
-        # labels = torch.arange(len(logits_per_image1), dtype=torch.long, device=self.device)
 
         loss1 = self.loss(logits_per_image1, eps)
         loss2 = self.loss(logits_per_image2, eps)
         return (loss1 + loss2) / 2
+
+
+@register_loss("MultiSimilarityLoss")
+class MultiSimilarityLoss(nn.Module):
+    def __init__(self, scale_pos=2.0, scale_neg=50.0, thresh=0.5, margin=0.1):
+        super().__init__()
+        self.thresh = thresh
+        self.margin = margin
+        self.scale_pos = scale_pos
+        self.scale_neg = scale_neg
+
+    def forward(self, image_features1, image_features2, logit_scale=None):
+        image_features1 = F.normalize(image_features1, dim=-1)
+        image_features2 = F.normalize(image_features2, dim=-1)
+        
+        sim_mat = image_features1 @ image_features2.T
+        batch_size = sim_mat.size(0)
+        
+        mask_pos = torch.eye(batch_size, dtype=torch.bool, device=sim_mat.device)
+        mask_neg = ~mask_pos
+
+        def compute_ms_loss(sim_matrix):
+            loss = []
+            for i in range(batch_size):
+                pos_pair = sim_matrix[i][mask_pos[i]]
+                neg_pair_ = sim_matrix[i][mask_neg[i]]
+
+                neg_pair = neg_pair_[neg_pair_ + self.margin > pos_pair.min()]
+                pos_pair = pos_pair[pos_pair - self.margin < neg_pair_.max()]
+
+                if len(neg_pair) < 1 or len(pos_pair) < 1:
+                    continue
+
+                pos_loss = 1.0 / self.scale_pos * torch.log(
+                    1 + torch.sum(torch.exp(-self.scale_pos * (pos_pair - self.thresh)))
+                )
+                neg_loss = 1.0 / self.scale_neg * torch.log(
+                    1 + torch.sum(torch.exp(self.scale_neg * (neg_pair - self.thresh)))
+                )
+                
+                loss.append(pos_loss + neg_loss)
+
+            if len(loss) == 0:
+                return sim_matrix.sum() * 0.0
+
+            return sum(loss) / batch_size
+
+        loss1 = compute_ms_loss(sim_mat)
+        loss2 = compute_ms_loss(sim_mat.T)
+
+        return (loss1 + loss2) / 2.0
     
 
 # ----------------------------------------------------------------
@@ -291,7 +339,7 @@ class IntraInfoNCE(nn.Module):
         super().__init__()
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
         self.loss_function = nn.CrossEntropyLoss(**kwargs)
-        self.alpha = nn.Parameter(torch.zeros([]))  # Weighting factor for intra-modal loss
+        self.log_alpha = nn.Parameter(torch.zeros(()))  # Weighting factor for intra-modal loss
         self.infonce = InfoNCE(device=device, **kwargs) 
 
 
@@ -309,9 +357,11 @@ class IntraInfoNCE(nn.Module):
         # SATELLITE INFONCE LOSS
         loss_s = self.infonce(image_features2, image_features2, logit_scale)
 
+        alpha = torch.exp(self.log_alpha)
+
         total_loss = loss + \
-                     0.5 * self.alpha * loss_d + \
-                     0.5 * (1 / self.alpha) * loss_s
+                     0.5 * alpha * loss_d + \
+                     0.5 * (1 / alpha) * loss_s
 
         return total_loss  
  

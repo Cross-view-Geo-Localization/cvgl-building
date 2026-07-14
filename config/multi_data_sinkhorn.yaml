@@ -3,28 +3,43 @@ logging:
   task_name: "Train HGNetv2"
 
 model:
-  model_path: "./university_checkpoint"
-  model_name: "SiameseNetwork"
+  model_path: "./multi_data_checkpoint"
+  model_name: "SinkhornSiameseNetwork"
   model_args:
     model_name: "convnext_tiny.in12k_ft_in1k_384"
     pretrained: True
     img_size: 384
+    num_prototypes: 16
+    num_iters: 4
+    epsilon: 0.05
+    dim_prototype: 256
 
 loss:
-  loss_name: "InfoNCE"
+  loss_name: "WeightedInfoNCE"
   loss_args:
     # Loss
     label_smoothing: 0.1
+    k: 5
 
 data:
-  # Size
   img_size: 384
   sat_img_size: [480, 640]
   drone_img_size: [480, 640]
+  visloc:
+    drone2sate: True          
+    train_pairs_meta_file: "/home/tts26/sonh/data/VisLoc/same-area-drone2sate-train.json"
+    test_pairs_meta_file: "/home/tts26/sonh/data/VisLoc/same-area-drone2sate-test.json"
+    data_folder: "/home/tts26/sonh/data/VisLoc"
+    sate_img_dir: "/home/tts26/sonh/data/VisLoc/satellite"
+  university:
+    dataset: 'U1652-D2S'           # 'U1652-D2S' | 'U1652-S2D'
+    data_folder: "./data/University-Release"
+  sues200:
+    query_folder_train: "/home/tts26/sonh/data/SUES-200-512x512/train/drone_view_512"
+    reference_folder_train: "/home/tts26/sonh/data/SUES-200-512x512/train/satellite-view"
+    query_folder_test: "/home/tts26/sonh/data/SUES-200-512x512/test/drone_view_512"
+    reference_folder_test: "/home/tts26/sonh/data/SUES-200-512x512/test/satellite-view"
 
-  # Dataset
-  dataset: 'U1652-D2S'           # 'U1652-D2S' | 'U1652-S2D'
-  data_folder: "./data/University-Release"
 
 eval:
   # Eval
@@ -38,7 +53,7 @@ training:
   mixed_precision: False
   custom_sampling: True         # use custom sampling instead of random
   seed: 1
-  epochs: 5
+  epochs: 10
   batch_size: 48               # keep in mind real_batch_size = 2 * batch_size
   verbose: True
   gpu_ids: [0,]           # GPU ids for training
@@ -52,9 +67,9 @@ training:
   grad_checkpointing: True     # Gradient Checkpointing
   
   # Learning Rate
-  lr: 3e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
+  lr: 2.5e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
   scheduler: "cosine"           # "polynomial" | "cosine" | "constant" | None
-  warmup_epochs: 1
+  warmup_epochs: 0.5
   lr_end: 0.0001               #  only for "polynomial"
   
   # Augment Images
@@ -64,11 +79,11 @@ training:
   zero_shot: False
   
   # Checkpoint to start from
+  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SinkhornSiameseNetwork/20260612_014947/weights_e03_94.5846.pth"
   checkpoint_start: null
-  # checkpoint_start: "/home/tts26/sonh/university_checkpoint/SiameseNetwork/20260329_094234/weights_e11_86.5962.pth"
 
   # set num_workers to 0 if on Windows
-  num_workers: 8
+  num_workers: 12
   
   # for better performance
   cudnn_benchmark: True

@@ -310,6 +310,7 @@ class VisLocDatasetTrain(Dataset):
             print("First Element ID: {} - Last Element ID: {}".format(self.samples[0][0], self.samples[-1][0]))  
             print("First Element ID: {} - Last Element ID: {}".format(self.samples[0][1], self.samples[-1][1]))  
 
+
 class VisLocDatasetEval(Dataset):
     
     def __init__(self,
@@ -388,7 +389,9 @@ class VisLocDatasetEval(Dataset):
         if self.transforms is not None:
             img = self.transforms(image=img)['image']
         
-        return img
+        img_name = img_path.split('/')[-1]
+
+        return img, img_name
 
     def __len__(self):
         return len(self.images_path)

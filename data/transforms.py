@@ -35,40 +35,64 @@ def get_transforms_train(image_size_sat,
     
     
     satellite_transforms = A.Compose([
-                                      A.ImageCompression(quality_range=(90, 100), p=0.5),
-                                      A.Resize(image_size_sat[0], image_size_sat[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
-                                      A.HorizontalFlip(p=0.5),
-                                      A.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.15, hue=0.1, p=0.5),
-                                      A.OneOf([
-                                               A.AdvancedBlur(p=1.0),
-                                               A.Sharpen(p=1.0),
-                                              ], p=0.3),
-                                      A.OneOf([
-                                               A.GridDropout(ratio=0.3, p=1.0),
-                                               A.CoarseDropout(
+                                        A.ImageCompression(quality_range=(90, 100), p=0.5),
+                                    #   A.Resize(image_size_sat[0], image_size_sat[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+
+                                        A.LongestMaxSize(max_size_hw=(image_size_sat[0], image_size_sat[1]), interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+                                        A.PadIfNeeded(
+                                            min_height=image_size_sat[0],
+                                            min_width=image_size_sat[1],
+                                            border_mode=cv2.BORDER_CONSTANT,
+                                            value=[114, 114, 114]
+                                        ),
+
+                                        A.HorizontalFlip(p=0.5),
+                                        A.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.15, hue=0.1, p=0.5),
+                                        A.OneOf([
+                                                A.AdvancedBlur(p=1.0),
+                                                A.Sharpen(p=1.0),
+                                                ], p=0.3),
+                                        A.OneOf([
+                                                A.GridDropout(ratio=0.3, p=1.0),
+                                                A.CoarseDropout(
                                                     num_holes_range=(8, 20),
                                                     hole_height_range=(int(0.1 * image_size_sat[0]), int(0.2 * image_size_sat[0])),
                                                     hole_width_range=(int(0.1 * image_size_sat[0]), int(0.2 * image_size_sat[0])),
                                                     p=1.0),
-                                              ], p=0.3),
-                                    #   A.ShiftScaleRotate(
-                                    #         shift_limit=0.1,  # Shift by max 10%. Forces model to handle off-center targets.
-                                    #         scale_limit=0.10,  # Zoom in/out by 10% to simulate different satellite altitudes.
-                                    #         rotate_limit=180,  # Full 360-degree rotation. Crucial for top-down invariance.
-                                    #         interpolation=cv2.INTER_LINEAR,
-                                    #         border_mode=cv2.BORDER_CONSTANT, # Use black borders. 
-                                    #         value=0, # Black pixel value
-                                    #         p=0.5
-                                    #     ),
-                                      A.Normalize(ref_mean, ref_std),
-                                      ToTensorV2(),
+                                                ], p=0.3),
+                                        # A.ShiftScaleRotate(
+                                        #         shift_limit=0.1,  # Shift by max 10%. Forces model to handle off-center targets.
+                                        #         scale_limit=0.10,  # Zoom in/out by 10% to simulate different satellite altitudes.
+                                        #         rotate_limit=180,  # Full 360-degree rotation. Crucial for top-down invariance.
+                                        #         interpolation=cv2.INTER_LINEAR,
+                                        #         border_mode=cv2.BORDER_CONSTANT, # Use black borders. 
+                                        #         value=0, # Black pixel value
+                                        #         p=0.5
+                                        #     ),
+
+                                        # A.Normalize(query_mean, query_std),
+
+                                        A.Normalize(
+                                            mean=(0, 0, 0),
+                                            std=(1, 1, 1),
+                                        ),
+                                        ToTensorV2(),
                                      ])
             
     
 
     drone_transforms = A.Compose([# Cut(cutting=ground_cutting, p=1.0),
                                     A.ImageCompression(quality_range=(90, 100), p=0.5),
-                                    A.Resize(image_size_drone[0], image_size_drone[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+                                    # A.Resize(image_size_drone[0], image_size_drone[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+
+                                    A.LongestMaxSize(max_size_hw=(image_size_drone[0], image_size_drone[1]), interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+                                    A.PadIfNeeded(
+                                        min_height=image_size_drone[0],
+                                        min_width=image_size_drone[1],
+                                        border_mode=cv2.BORDER_CONSTANT,
+                                        value=[114, 114, 114]
+                                    ),
+                                    
                                     A.HorizontalFlip(p=0.5),
                                     A.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.15, hue=0.1, p=0.5),
                                     A.OneOf([
@@ -92,7 +116,13 @@ def get_transforms_train(image_size_sat,
                                     #         value=0, # Black pixel value
                                     #         p=0.5
                                     #     ),
-                                    A.Normalize(ref_mean, ref_std),
+
+                                    # A.Normalize(query_mean, query_std),
+
+                                    A.Normalize(
+                                        mean=(0, 0, 0),
+                                        std=(1, 1, 1),
+                                    ),
                                     ToTensorV2(),
                                    ])
                 
@@ -111,19 +141,42 @@ def get_transforms_val(image_size_sat,
     
     
     
-    satellite_transforms = A.Compose([A.Resize(image_size_sat[0], image_size_sat[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
-                                      A.Normalize(ref_mean, ref_std),
-                                      ToTensorV2(),
-                                     ])
+    satellite_transforms = A.Compose([
+                                    # A.Resize(image_size_sat[0], image_size_sat[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+                                    A.LongestMaxSize(max_size_hw=(image_size_sat[0], image_size_sat[1]), interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+                                    A.PadIfNeeded(
+                                        min_height=image_size_sat[0],
+                                        min_width=image_size_sat[1],
+                                        border_mode=cv2.BORDER_CONSTANT,
+                                        value=[114, 114, 114]
+                                    ),
+                                    # A.Normalize(ref_mean, ref_std),
+                                    A.Normalize(
+                                        mean=(0, 0, 0),
+                                        std=(1, 1, 1),
+                                    ),
+                                    ToTensorV2(),
+                                ])
             
     
  
 
     drone_transforms = A.Compose([#Cut(cutting=ground_cutting, p=1.0),
-                                   A.Resize(image_size_drone[0], image_size_drone[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
-                                   A.Normalize(query_mean, query_std),
-                                   ToTensorV2(),
-                                  ])
+                                    # A.Resize(image_size_drone[0], image_size_drone[1], interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+                                    A.LongestMaxSize(max_size_hw=(image_size_drone[0], image_size_drone[1]), interpolation=cv2.INTER_LINEAR_EXACT, p=1.0),
+                                    A.PadIfNeeded(
+                                        min_height=image_size_drone[0],
+                                        min_width=image_size_drone[1],
+                                        border_mode=cv2.BORDER_CONSTANT,
+                                        value=[114, 114, 114]
+                                    ),
+                                    # A.Normalize(query_mean, query_std),
+                                    A.Normalize(
+                                        mean=(0, 0, 0),
+                                        std=(1, 1, 1),
+                                    ),
+                                    ToTensorV2(),
+                                ])
             
     return drone_transforms, satellite_transforms
     

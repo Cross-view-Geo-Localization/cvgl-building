@@ -27,6 +27,8 @@ from models.asymmetric_network import AsymmetricNetwork
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork
 from models.aspp import ASPPSinkhornSiameseNetwork
 from models.self_distillation_network import SelfDistillationNetwork
+from models.supersalad import SuperSALADNetwork
+from models.siamese_network_with_atttention import SiameseNetworkWithAttention
 from models.dac import DAC
 from core.loss import InfoNCE, ColBERTLoss, IntraInfoNCE, SelfDistillationLoss
 

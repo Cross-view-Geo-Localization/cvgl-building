@@ -110,6 +110,7 @@ def train_one_epoch_semi_pos(
     optimizer,
     scheduler=None,
     scaler=None,
+    has_weights=True
 ):
     """
     Training loop for UAV1-style semi-positive datasets.
@@ -152,8 +153,11 @@ def train_one_epoch_semi_pos(
             from torch.amp import autocast
             with autocast(device_type="cuda", enabled=config.training.mixed_precision):
                 feat_q, feat_r = model(query, gallery)
-                loss = loss_fn(feat_q, feat_r, model.logit_scale.exp(),
-                               positive_weights=weights)
+                if has_weights:
+                    loss = loss_fn(feat_q, feat_r, model.logit_scale.exp(),
+                                positive_weights=weights)
+                else:
+                    loss = loss_fn(feat_q, feat_r, model.logit_scale.exp())
             scaler.scale(loss).backward()
             if config.training.clip_grad:
                 scaler.unscale_(optimizer)
@@ -162,8 +166,11 @@ def train_one_epoch_semi_pos(
             scaler.update()
         else:
             feat_q, feat_r = model(query, gallery)
-            loss = loss_fn(feat_q, feat_r, model.logit_scale.exp(),
-                           positive_weights=weights)
+            if has_weights:
+                loss = loss_fn(feat_q, feat_r, model.logit_scale.exp(),
+                            positive_weights=weights)
+            else:
+                loss = loss_fn(feat_q, feat_r, model.logit_scale.exp())
             loss.backward()
             if config.training.clip_grad:
                 torch.nn.utils.clip_grad_value_(model.parameters(), config.training.clip_grad)
@@ -315,3 +322,33 @@ def train_one_epoch_cross_distill(
 
     bar.close()
     return sum(losses) / len(losses)
+
+
+def compute_loss_and_backward(config, model, batch, loss_fn, scaler, data_weight=1, has_weights=False):
+    model.train()
+    device = config.training.device
+
+    if has_weights:
+        query, reference, weights = batch
+        weights = weights.to(device, dtype=torch.float32)
+    else:
+        query, reference, ids = batch
+        weights = None
+
+    query = query.to(device)
+    reference = reference.to(device)
+
+    if scaler is not None:
+        from torch.amp import autocast
+        with autocast(device_type="cuda", enabled=config.training.mixed_precision):
+            feat_q, feat_r = model(query, reference)
+            loss = loss_fn(feat_q, feat_r, model.logit_scale.exp(),
+                            positive_weights=weights) * data_weight
+        scaler.scale(loss).backward()
+    else:
+        feat_q, feat_r = model(query, reference)
+        loss = loss_fn(feat_q, feat_r, model.logit_scale.exp(),
+                        positive_weights=weights) * data_weight
+        loss.backward()
+
+    return loss.item()

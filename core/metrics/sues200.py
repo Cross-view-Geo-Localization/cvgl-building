@@ -121,7 +121,7 @@ def calc_sim(
     near_dict = calculate_nearest(
         reference_features,
         reference_labels,
-        neighbour_range=config.neighbour_range,
+        neighbour_range=config.training.neighbour_range,
         step_size=step_size
     )
 

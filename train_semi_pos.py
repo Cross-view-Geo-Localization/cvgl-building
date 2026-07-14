@@ -49,7 +49,9 @@ from models.siamese_network import SiameseNetwork
 from models.siamese_network_max_avg import SiameseNetworkMaxAvg             
 from models.asymmetric_network import AsymmetricNetwork                     
 from models.sinkhorn_siamese_network import SinkhornSiameseNetwork         
-from models.aspp import ASPPSinkhornSiameseNetwork                         
+from models.aspp import ASPPSinkhornSiameseNetwork     
+from models.spatial_frequency_fusion import SFFNetwork          
+from models.supersalad import SuperSALADNetwork          
 from core.loss import InfoNCE, ColBERTLoss, WeightedInfoNCE                                  
 
 
@@ -94,6 +96,7 @@ if __name__ == "__main__":
 
     shutil.copyfile(os.path.abspath(__file__), os.path.join(model_path, "train_semi_pos.py"))
     shutil.copyfile(config_path,               os.path.join(model_path, "config.yaml"))
+    shutil.copyfile(os.path.join(script_dir, "data", "transforms.py"), "{}/transforms.py".format(model_path))
     sys.stdout = Logger(os.path.join(model_path, "log.txt"))
 
     # -------------------------------------------------------------------------
@@ -296,7 +299,7 @@ if __name__ == "__main__":
 
         train_loss = train_one_epoch_semi_pos(
             config, model, train_loader,
-            loss_fn, optimizer, scheduler, scaler,
+            loss_fn, optimizer, scheduler, scaler
         )
         print(f"Epoch: {epoch} | Train Loss = {train_loss:.4f}"
               f" | LR = {optimizer.param_groups[0]['lr']:.6f}")

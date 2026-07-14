@@ -3,16 +3,16 @@ logging:
   task_name: "Train HGNetv2"
 
 model:
-  model_path: "./university_checkpoint"
-  model_name: "SinkhornSiameseNetwork"
+  model_path: "./visloc_checkpoint"
+  model_name: "SuperSALADNetwork"
   model_args:
     model_name: "convnext_tiny.in12k_ft_in1k_384"
     pretrained: True
     img_size: 384
-    num_prototypes: 32
+    num_prototypes: 4
     num_iters: 4
     epsilon: 0.05
-    dim_prototype: 256
+    dim_prototype: 768
 
 loss:
   loss_name: "WeightedInfoNCE"
@@ -24,8 +24,8 @@ loss:
 data:
   # Size
   img_size: 384
-  sat_img_size: [384, 384]
-  drone_img_size: [384, 384]
+  sat_img_size: [480, 640]
+  drone_img_size: [480, 640]
 
   # Dataset
   drone2sate: True           # 'U1652-D2S' | 'U1652-S2D'
@@ -60,7 +60,7 @@ training:
   grad_checkpointing: True     # Gradient Checkpointing
   
   # Learning Rate
-  lr: 2e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
+  lr: 1e-4                    # 1 * 10^-4 for ViT | 1 * 10^-1 for CNN
   scheduler: "cosine"           # "polynomial" | "cosine" | "constant" | None
   warmup_epochs: 1
   lr_end: 0.0001               #  only for "polynomial"
@@ -72,7 +72,7 @@ training:
   zero_shot: False
   
   # Checkpoint to start from
-  checkpoint_start: "/home/tts26/sonh/university_checkpoint/SinkhornSiameseNetwork/20260529_004537/weights_e07_0.7461.pth"
+  checkpoint_start: "/home/tts26/sonh/visloc_checkpoint/SuperSALADNetwork/20260625_025116/weights_e19_0.8586.pth"
   # checkpoint_start: null
 
   # set num_workers to 0 if on Windows
